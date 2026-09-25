@@ -20,6 +20,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import time
 import urllib.error
@@ -540,11 +541,29 @@ Yalnızca şu başlıklarla Markdown döndür:
 
 def llm_cagir(ayar: dict, sistem: str, kullanici: str) -> str:
     llm = ayar["llm"]
-    if not llm.get("model"):
-        raise RuntimeError("llm.model ayarlı değil")
+    model = llm.get("model", "").strip()
+    if not model or model == "BURAYA-9ROUTER-MODEL-ADI":
+        raise RuntimeError("llm.model ayarlı değil; model adını yazın veya --elle kullanın")
     url = llm["base_url"].rstrip("/").replace("://localhost", "://127.0.0.1") + "/chat/completions"
+    # Önizlemede görülen metin ile ağ isteğine giren metin bire bir aynı olmalı.
+    sistem = gizli_temizle(sistem)
+    kullanici = gizli_temizle(kullanici)
+    print(f"\n[LLM önizleme] Hedef: {url} · Model: {model}")
+    print(f"--- SİSTEM ({len(sistem)} karakter) ---\n{sistem}")
+    print(f"--- KULLANICI ({len(kullanici)} karakter) ---\n{kullanici}")
+    print("--- ÖNİZLEME SONU ---", flush=True)
+    if not ayar.get("_onayli_gonder", False):
+        if not sys.stdin.isatty():
+            raise SystemExit("LLM isteği gönderilmedi: etkileşimli onay yok. "
+                             "Denetledikten sonra --onayli-gonder kullanın.")
+        try:
+            cevap = input("Bu metin belirtilen sağlayıcıya gönderilsin mi? [e/H]: ").strip().lower()
+        except EOFError:
+            cevap = ""
+        if cevap not in ("e", "evet"):
+            raise SystemExit("LLM isteği kullanıcı tarafından iptal edildi.")
     govde = json.dumps({
-        "model": llm["model"],
+        "model": model,
         "messages": [{"role": "system", "content": sistem}, {"role": "user", "content": kullanici}],
         "temperature": 0.2,
         "stream": False,
@@ -755,6 +774,34 @@ def cilt_katla(ayar: dict, pk: Path, durum: dict, elle: bool) -> int:
 
 # ---------------------------------------------------------------- 4) bağlam paketi
 
+def kopya_git_guvenli_mi(hedef: Path) -> None:
+    """Başka bir Git deposuna kişisel bağlam yalnızca ignore edilmişse kopyalanır."""
+    ust = hedef.parent.resolve()
+    try:
+        sonuc = subprocess.run(
+            ["git", "-C", str(ust), "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, check=False,
+        )
+    except OSError:
+        return
+    if sonuc.returncode != 0:
+        return
+    repo = Path(sonuc.stdout.strip()).resolve()
+    goreli = hedef.resolve().relative_to(repo).as_posix()
+    izlenen = subprocess.run(
+        ["git", "-C", str(repo), "ls-files", "--error-unmatch", "--", goreli],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False,
+    ).returncode == 0
+    yoksayilan = subprocess.run(
+        ["git", "-C", str(repo), "check-ignore", "--no-index", "-q", "--", goreli],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False,
+    ).returncode == 0
+    if izlenen or not yoksayilan:
+        raise SystemExit(
+            f"Bağlam kopyalanmadı: {hedef} Git deposunda izleniyor veya ignore edilmiyor. "
+            "Hedef deponun .gitignore dosyasına BAGLAM.md ekleyin ve izlenmediğini doğrulayın."
+        )
+
 def baglam(ayar: dict, kok: Path, proje: str, butce: int, kopyala: str | None) -> None:
     pk = proje_klasorleri(kok, proje)[0]
     durum = durum_yukle(pk)
@@ -790,6 +837,7 @@ def baglam(ayar: dict, kok: Path, proje: str, butce: int, kopyala: str | None) -
     if kopyala:
         k = Path(os.path.expanduser(kopyala))
         k = k / "BAGLAM.md" if k.is_dir() else k
+        kopya_git_guvenli_mi(k)
         shutil.copy2(hedef, k)
         print(f"[baglam] kopyalandı -> {k}")
 
@@ -821,16 +869,21 @@ def main() -> None:
     o = alt.add_parser("ozetle", help="Yeni turlardan bölüm, dolan bölümlerden cilt üretir")
     o.add_argument("--proje")
     o.add_argument("--elle", action="store_true", help="LLM çağırma; istem dosyası üret, yanıtı sen yapıştır")
+    o.add_argument("--onayli-gonder", action="store_true",
+                   help="LLM önizlemesini göster; etkileşimli onayı atla (otomasyon için)")
     b = alt.add_parser("baglam", help="Yeni sohbet için bütçeli bağlam paketi (BAGLAM.md)")
     b.add_argument("proje")
     b.add_argument("--token", type=int, default=12000)
     b.add_argument("--kopyala", help="BAGLAM.md'nin kopyalanacağı klasör/dosya (ör. proje klasörü)")
     h = alt.add_parser("hepsi", help="topla + dokum + ozetle")
     h.add_argument("--elle", action="store_true")
+    h.add_argument("--onayli-gonder", action="store_true",
+                   help="LLM önizlemesini göster; etkileşimli onayı atla (otomasyon için)")
     alt.add_parser("durum", help="Projeleri ve özet sayılarını listeler")
     arg = ap.parse_args()
 
     ayar = ayar_yukle(Path(arg.ayar))
+    ayar["_onayli_gonder"] = getattr(arg, "onayli_gonder", False)
     kok = genislet(ayar["arsiv_klasoru"])
     kok.mkdir(parents=True, exist_ok=True)
     if arg.komut == "topla":

@@ -20,6 +20,8 @@ python ctxzip.py baglam Proje-Adi --token 12000
 
 LLM bağlantısı kurmadan ilerlemek için `python ctxzip.py hepsi --elle` çalıştırın. Oluşan `*.istem.md` dosyalarının yanıtlarını ilgili Bölüm dosyalarındaki `<!-- BURAYA-YAPISTIR -->` yerine koyun. Model adı boş veya örnek değerken otomatik özetleme çalıştırmayın.
 
+Otomatik özetlemede her LLM isteğinin **tam sistem ve kullanıcı metni** ile hedef adresi terminalde gösterilir. Varsayılan olarak her istek için `e` yanıtıyla onay gerekir; etkileşimsiz çalışmada gönderim durdurulur. Metni önceden denetlediğiniz otomasyonlarda `ozetle --onayli-gonder` veya `hepsi --onayli-gonder` kullanılabilir. Bu seçenek etkileşimli onayı atlar; önizleme yine gösterilir. Terminal çıktısını da hassas veri kabul edin.
+
 | Komut | İşlev |
 | --- | --- |
 | `topla` | Kaynak oturumları kişisel arşive kopyalar; büyüyen dosyaları günceller. |
@@ -38,10 +40,11 @@ Claude Code / Codex / Antigravity artefaktları / elle eklenen metin
 
 Varsayılan arşiv `~/CtxZip-Arsiv` içindedir. `bolum_token` yaklaşık Bölüm bütçesini, `cilt_bolum_sayisi` bir Cilt için Bölüm sayısını, `aktif_oturum_dk` aktif oturumun son parçasını bekletme süresini ayarlar. `llm.base_url` OpenAI uyumlu uç noktadır; örnekte yerel 9Router adresi bulunur. Anahtar gerekiyorsa `CTXZIP_API_KEY` ortam değişkenini kullanın.
 
-`BAGLAM.md` eski oturumların özetidir. Güncel kod, Git durumu ve test sonuçlarıyla çelişirse onlar geçerlidir. `--kopyala` ile bir projeye koyarsanız o projenin `.gitignore` dosyasına `BAGLAM.md` ekleyin.
+`BAGLAM.md` eski oturumların özetidir. Güncel kod, Git durumu ve test sonuçlarıyla çelişirse onlar geçerlidir. `--kopyala` bir Git deposuna yazacaksa hedef dosyanın izlenmemesi ve hedef deponun `.gitignore` kurallarıyla dışlanması gerekir; aksi hâlde kopya durdurulur.
 
 ## Güvenlik ve sınırlar
 
+- Bu klonda commit öncesi korumayı kurmak için `python scripts/install_hook.py` çalıştırın. Kurulum var olan `pre-commit` hook'unu yedekleyip korur. Koruma Git index'ine seçilmiş dosyaları tarar; kişisel arşiv/ayar yollarını, yaygın sır kalıplarını ve tam kullanıcı ev yollarını engeller. Bu, bilinmeyen sırları yakalama garantisi değildir ve `git commit --no-verify` ile atlanabilir.
 - `raw/` sohbet metni ve olası sırlar içerir. Arşivi, `ctxzip_ayar.json` dosyasını ve `BAGLAM.md` çıktısını açık depoya koymayın.
 - Döküm ve model isteminde bilinen anahtar kalıpları maskelenir; bu eksiksiz bir sır taraması değildir. Otomatik özetlemede metin seçilen sağlayıcıya gönderilir; `--elle` otomatik ağ çağrısı yapmaz.
 - Token hesabı yaklaşık `karakter/3.5` değeridir. Bağlam seçimi şu an görev ilgisinden çok yeniliğe dayanır.

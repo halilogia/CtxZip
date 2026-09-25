@@ -6,6 +6,8 @@
 - 2026-09-25'te Windows/Python 3.12 ile `--help`, `topla`, `dokum`, `durum` ve `ozetle --proje Godot-AI-Sidebar --elle` çalıştırıldı. İlk toplamada 48 kaynak kopyalandı; Godot-AI-Sidebar için 11 bekleyen Bölüm oluştu. Bu, özet kalitesini veya gerçek LLM bağlantısını kanıtlamaz.
 - `raw/` kaynağın kopyasıdır ve kaynak büyüdüğünde güncellenir. Kaynak küçülürse eski kopya `*.onceki.jsonl` olarak saklanır.
 - `BAGLAM.md` yalnızca doldurulmuş özetleri seçer; seçim yeniye öncelik ve yaklaşık token bütçesiyledir.
+- LLM isteği son gönderim sınırında tekrar maskelenir, tam istem ve hedef gösterilir. Etkileşimli onay yoksa istek gönderilmez; `--onayli-gonder` bu onayı bilerek atlar.
+- Git index'i için kontrol yalnızca hook kurulmuş klonlarda otomatik çalışır. Git hook'ları depoyla taşınmaz ve `--no-verify` ile atlanabilir.
 
 ## Belirsizlikler
 

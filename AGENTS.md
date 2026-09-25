@@ -19,6 +19,8 @@ CtxZip, farklı AI kodlama araçlarının yerel oturumlarını proje bazında ar
 - Gerçek oturumlarla test gerekiyorsa yalnızca gereken en küçük kesiti kullan; kalıcı test fikstürüne koymadan önce kişisel veriyi çıkar ve yeniden kontrol et.
 - `gizli_temizle` sınırlı bir savunmadır. Bütün sırları bulduğunu veya LLM'e veri göndermenin güvenli olduğunu iddia etme.
 - `--elle` modunda otomatik LLM çağrısı yapılmaz. Otomatik özetlemede seçilen sağlayıcıya metin gönderilir; bu ayrımı koru.
+- LLM önizlemesi ve varsayılan onay kapısını kaldırma. `--onayli-gonder` yalnızca kullanıcının açık otomasyon tercihidir.
+- Commit koruması index'i tarar; yeni klonda `scripts/install_hook.py` gerekir. Mevcut hook'u silme veya sessizce değiştirme.
 
 ## Davranış değişmezleri
 
