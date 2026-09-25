@@ -9,6 +9,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import ctxzip
+from ctxzip_core import llm
 from scripts.check_staged import content_issues, path_issue
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
@@ -35,7 +36,7 @@ class PrivacyTests(unittest.TestCase):
         settings = {"llm": {"model": "test-model", "base_url": "http://127.0.0.1:1/v1"}}
         stdin = io.StringIO()
         with mock.patch.object(ctxzip.sys, "stdin", stdin), \
-             mock.patch.object(ctxzip.urllib.request, "urlopen") as request, \
+             mock.patch.object(llm.urllib.request, "urlopen") as request, \
              mock.patch("builtins.print"):
             with self.assertRaises(SystemExit):
                 ctxzip.llm_cagir(settings, "system", "user")
@@ -46,7 +47,7 @@ class PrivacyTests(unittest.TestCase):
         settings = {"llm": {"model": "test-model", "base_url": "http://127.0.0.1:1/v1"},
                     "_onayli_gonder": True}
         reply = io.BytesIO(b'{"choices":[{"message":{"content":"ok"}}]}')
-        with mock.patch.object(ctxzip.urllib.request, "urlopen", return_value=reply) as request, \
+        with mock.patch.object(llm.urllib.request, "urlopen", return_value=reply) as request, \
              mock.patch("builtins.print") as printed:
             self.assertEqual(ctxzip.llm_cagir(settings, "system", "token=" + fake), "ok")
         body = json.loads(request.call_args.args[0].data.decode("utf-8"))

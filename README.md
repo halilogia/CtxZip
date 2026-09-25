@@ -4,6 +4,8 @@
 
 CtxZip, Claude Code ve Codex yerel oturumlarını, Antigravity'nin erişilebilen Markdown artefaktlarını toplar. Ham kayıtları saklar, okunabilir dökümler, **Bölüm** ve **Cilt** özetleri üretir. Yeni görev için token bütçeli `BAGLAM.md` hazırlar. Python 3.10+ standart kütüphanesi yeterlidir.
 
+CLI `ctxzip.py` içindedir; gizlilik temizliği, LLM gönderimi ve Git kopya kontrolü `ctxzip_core/` modüllerine ayrılmıştır.
+
 > **Durum:** Erken sürüm (`0.1.0`). Claude Code ve Codex yerel kayıtlarıyla içe aktarma denendi. Antigravity desteği tam sohbet geçmişini kapsamaz. Gerçek LLM ile özet kalitesi henüz doğrulanmadı.
 
 ## Hızlı başlangıç

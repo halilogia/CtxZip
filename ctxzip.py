@@ -20,13 +20,14 @@ import json
 import os
 import re
 import shutil
-import subprocess
 import sys
 import time
-import urllib.error
-import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
+
+from ctxzip_core.git_safety import kopya_git_guvenli_mi
+from ctxzip_core.llm import llm_cagir
+from ctxzip_core.privacy import gizli_temizle
 
 SURUM = "0.1.0"
 PROMPT_SURUMU = "ozet-v1"
@@ -111,27 +112,6 @@ def zaman_str(ts: str | float | None) -> str:
         return dt.astimezone().strftime("%Y-%m-%d %H:%M")
     except (ValueError, OSError):
         return str(ts)[:16]
-
-
-GIZLI_KALIPLAR = [
-    re.compile(r"sk-[A-Za-z0-9_\-]{16,}"),
-    re.compile(r"sk-ant-[A-Za-z0-9_\-]{16,}"),
-    re.compile(r"gh[pousr]_[A-Za-z0-9]{20,}"),
-    re.compile(r"github_pat_[A-Za-z0-9_]{20,}"),
-    re.compile(r"AKIA[0-9A-Z]{16}"),
-    re.compile(r"AIza[0-9A-Za-z_\-]{30,}"),
-    re.compile(r"(?i)(api[_-]?key|token|secret|password|passwd|authorization)(\"?\s*[:=]\s*\"?)(Bearer\s+)?[^\s\"',}]{8,}"),
-]
-
-
-def gizli_temizle(metin: str) -> str:
-    """Modele gönderilen ve dökümlere yazılan metinden bilinen anahtar kalıplarını siler."""
-    for kalip in GIZLI_KALIPLAR:
-        if kalip.groups >= 2:
-            metin = kalip.sub(lambda m: m.group(1) + m.group(2) + "[GİZLİ]", metin)
-        else:
-            metin = kalip.sub("[GİZLİ]", metin)
-    return metin
 
 
 SISTEM_ETIKETI = re.compile(r"<(system-reminder|local-command-caveat|environment_context|user_instructions)>.*?</\1>", re.S)
@@ -539,53 +519,6 @@ Yalnızca şu başlıklarla Markdown döndür:
 ## Geçersizleşen / tamamlanan"""
 
 
-def llm_cagir(ayar: dict, sistem: str, kullanici: str) -> str:
-    llm = ayar["llm"]
-    model = llm.get("model", "").strip()
-    if not model or model == "BURAYA-9ROUTER-MODEL-ADI":
-        raise RuntimeError("llm.model ayarlı değil; model adını yazın veya --elle kullanın")
-    url = llm["base_url"].rstrip("/").replace("://localhost", "://127.0.0.1") + "/chat/completions"
-    # Önizlemede görülen metin ile ağ isteğine giren metin bire bir aynı olmalı.
-    sistem = gizli_temizle(sistem)
-    kullanici = gizli_temizle(kullanici)
-    print(f"\n[LLM önizleme] Hedef: {url} · Model: {model}")
-    print(f"--- SİSTEM ({len(sistem)} karakter) ---\n{sistem}")
-    print(f"--- KULLANICI ({len(kullanici)} karakter) ---\n{kullanici}")
-    print("--- ÖNİZLEME SONU ---", flush=True)
-    if not ayar.get("_onayli_gonder", False):
-        if not sys.stdin.isatty():
-            raise SystemExit("LLM isteği gönderilmedi: etkileşimli onay yok. "
-                             "Denetledikten sonra --onayli-gonder kullanın.")
-        try:
-            cevap = input("Bu metin belirtilen sağlayıcıya gönderilsin mi? [e/H]: ").strip().lower()
-        except EOFError:
-            cevap = ""
-        if cevap not in ("e", "evet"):
-            raise SystemExit("LLM isteği kullanıcı tarafından iptal edildi.")
-    govde = json.dumps({
-        "model": model,
-        "messages": [{"role": "system", "content": sistem}, {"role": "user", "content": kullanici}],
-        "temperature": 0.2,
-        "stream": False,
-    }).encode("utf-8")
-    basliklar = {"Content-Type": "application/json", "Connection": "close"}
-    anahtar = os.environ.get(llm.get("api_key_env") or "CTXZIP_API_KEY", "")
-    if anahtar:
-        basliklar["Authorization"] = "Bearer " + anahtar
-    istek = urllib.request.Request(url, data=govde, headers=basliklar, method="POST")
-    try:
-        with urllib.request.urlopen(istek, timeout=llm.get("timeout_sn", 300)) as r:
-            veri = json.loads(r.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        raise RuntimeError(f"HTTP {e.code}: {e.read()[:300]!r}") from None
-    except urllib.error.URLError as e:
-        raise RuntimeError(f"Bağlanılamadı: {e.reason}") from None
-    icerik = (veri.get("choices") or [{}])[0].get("message", {}).get("content", "")
-    if not icerik or not icerik.strip():
-        raise RuntimeError("Model boş yanıt döndü")
-    return re.sub(r"^\s*<think>.*?</think>", "", icerik, flags=re.S).strip()
-
-
 def durum_yukle(pk: Path) -> dict:
     p = pk / "durum.json"
     if p.exists():
@@ -773,34 +706,6 @@ def cilt_katla(ayar: dict, pk: Path, durum: dict, elle: bool) -> int:
         print(f"[cilt] {pk.name}: Cilt {no} yazıldı (B{grup[0]['no']}–B{grup[-1]['no']})")
 
 # ---------------------------------------------------------------- 4) bağlam paketi
-
-def kopya_git_guvenli_mi(hedef: Path) -> None:
-    """Başka bir Git deposuna kişisel bağlam yalnızca ignore edilmişse kopyalanır."""
-    ust = hedef.parent.resolve()
-    try:
-        sonuc = subprocess.run(
-            ["git", "-C", str(ust), "rev-parse", "--show-toplevel"],
-            capture_output=True, text=True, check=False,
-        )
-    except OSError:
-        return
-    if sonuc.returncode != 0:
-        return
-    repo = Path(sonuc.stdout.strip()).resolve()
-    goreli = hedef.resolve().relative_to(repo).as_posix()
-    izlenen = subprocess.run(
-        ["git", "-C", str(repo), "ls-files", "--error-unmatch", "--", goreli],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False,
-    ).returncode == 0
-    yoksayilan = subprocess.run(
-        ["git", "-C", str(repo), "check-ignore", "--no-index", "-q", "--", goreli],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False,
-    ).returncode == 0
-    if izlenen or not yoksayilan:
-        raise SystemExit(
-            f"Bağlam kopyalanmadı: {hedef} Git deposunda izleniyor veya ignore edilmiyor. "
-            "Hedef deponun .gitignore dosyasına BAGLAM.md ekleyin ve izlenmediğini doğrulayın."
-        )
 
 def baglam(ayar: dict, kok: Path, proje: str, butce: int, kopyala: str | None) -> None:
     pk = proje_klasorleri(kok, proje)[0]

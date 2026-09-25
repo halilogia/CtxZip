@@ -11,6 +11,7 @@
 
 ### Changed
 
+- Gizlilik temizliği, LLM gönderimi ve Git kopya denetimi `ctxzip_core/` modüllerine ayrıldı; CLI ve çıktı davranışı korundu.
 - Örnek `llm.model` değeriyle otomatik özetleme erken ve anlaşılır hatayla durur.
 - Bilinen sır kalıpları LLM'e gönderilen son istem üzerinde de temizlenir.
 

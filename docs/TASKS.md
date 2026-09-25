@@ -23,7 +23,9 @@
 
 - [ ] Platform bağımsız kurulum ve zamanlayıcı yönergeleri.
 - [ ] Kaynak sürümü ve yapılandırma tanılaması için `doctor` komutu.
-- [ ] Modül ayrımı ve MCP arayüzü tasarımı.
+- [x] Gizlilik, LLM ve Git kopya sınırları `ctxzip_core/` modüllerine ayrıldı.
+- [ ] Kaynak ayrıştırıcılarını ve özetleme durum yönetimini davranış koruyarak ayrı modüllere taşı.
+- [ ] MCP arayüzü tasarımı.
 
 ## Belge çalışması
 

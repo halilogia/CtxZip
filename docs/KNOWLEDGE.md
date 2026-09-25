@@ -2,7 +2,7 @@
 
 ## Doğrulanmış
 
-- Uygulama Python 3.10+ standart kütüphanesiyle çalışır; CLI `ctxzip.py` içindedir.
+- Uygulama Python 3.10+ standart kütüphanesiyle çalışır; CLI `ctxzip.py` içindedir. Gizlilik temizliği, LLM gönderimi ve Git kopya denetimi `ctxzip_core/` modüllerindedir.
 - 2026-09-25'te Windows/Python 3.12 ile `--help`, `topla`, `dokum`, `durum` ve `ozetle --proje Godot-AI-Sidebar --elle` çalıştırıldı. İlk toplamada 48 kaynak kopyalandı; Godot-AI-Sidebar için 11 bekleyen Bölüm oluştu. Bu, özet kalitesini veya gerçek LLM bağlantısını kanıtlamaz.
 - `raw/` kaynağın kopyasıdır ve kaynak büyüdüğünde güncellenir. Kaynak küçülürse eski kopya `*.onceki.jsonl` olarak saklanır.
 - `BAGLAM.md` yalnızca doldurulmuş özetleri seçer; seçim yeniye öncelik ve yaklaşık token bütçesiyledir.

@@ -4,7 +4,7 @@ Bu dosya CtxZip deposunda çalışan Codex, Claude Code, Antigravity ve diğer k
 
 ## Proje amacı
 
-CtxZip, farklı AI kodlama araçlarının yerel oturumlarını proje bazında arşivler, okunabilir döküme çevirir, Bölüm/Cilt özetleri oluşturur ve yeni sohbet için `BAGLAM.md` hazırlar. Python 3.10+ standart kütüphanesiyle çalışan bir CLI'dır. Kod şu anda `ctxzip.py` dosyasındadır.
+CtxZip, farklı AI kodlama araçlarının yerel oturumlarını proje bazında arşivler, okunabilir döküme çevirir, Bölüm/Cilt özetleri oluşturur ve yeni sohbet için `BAGLAM.md` hazırlar. Python 3.10+ standart kütüphanesiyle çalışan bir CLI'dır. Komut akışı `ctxzip.py`; gizlilik, LLM ve Git sınırları `ctxzip_core/` içindedir.
 
 ## İşe başlarken
 
@@ -30,6 +30,7 @@ CtxZip, farklı AI kodlama araçlarının yerel oturumlarını proje bazında ar
 - Kullanıcının elle düzelttiği özetleri yeniden çalıştırırken koru.
 - `durum.json`, Bölüm/Cilt dosyaları ve kaynak tur aralıkları tutarlı kalmalı. Yarım başarısızlıkta veri kaybını önle.
 - Proje eşlemesini, kaynak turu/commit atfını ve bağlam bütçesini sessizce değiştirme.
+- Bağımlılık yönünü `ctxzip.py → ctxzip_core` olarak koru. Çekirdek modüller CLI'ı içe aktarmasın; ayrıştırıcıları ve özetleme durumunu ileride küçük, testli adımlarla taşı.
 - Antigravity desteğini tam transkript olarak sunma: mevcut kod erişilen Markdown artefaktlarını toplar.
 
 ## Doğrulama
