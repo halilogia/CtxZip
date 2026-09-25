@@ -1,12 +1,30 @@
-# Kişisel ayar (model adı, klasör yolları)
+# Kişisel ayar ve sırlar
 ctxzip_ayar.json
+.env
+.env.*
+!.env.example
 
-# Arşiv verisi asla bu repoya girmez: ham kayıtlar sohbet içeriği ve olası anahtarlar taşır
+# Kişisel arşiv ve üretilen bağlam
 CtxZip-Arsiv/
 AI-Arsiv/
-*.jsonl
+raw/
+dokum/
+bolumler/
+ciltler/
+gelen/
+durum.json
 BAGLAM.md
+*.jsonl
 
-# Python
+# Python, editör ve yerel sistem
 __pycache__/
-*.pyc
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
