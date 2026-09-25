@@ -49,7 +49,7 @@ Varsayılan arşiv `~/CtxZip-Arsiv` içindedir. `bolum_token` yaklaşık Bölüm
 
 ## Belgeler
 
-[Mimari](ARCHITECTURE.md) · [Yol haritası](ROADMAP.md) · [Plan](docs/PLAN.md) · [Görevler](docs/TASKS.md) · [Teknik bilgi](docs/KNOWLEDGE.md) · [Değişiklikler](CHANGELOG.md)
+[Ajan kılavuzu](AGENTS.md) · [Mimari](ARCHITECTURE.md) · [Yol haritası](ROADMAP.md) · [Plan](docs/PLAN.md) · [Görevler](docs/TASKS.md) · [Teknik bilgi](docs/KNOWLEDGE.md) · [Değişiklikler](CHANGELOG.md)
 
 ## Lisans
 

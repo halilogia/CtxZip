@@ -4,6 +4,7 @@
 
 ### Documentation
 
+- Kodlama ajanları için `AGENTS.md` kılavuzu eklendi.
 - README, mimari, yol haritası, teknik bilgi, plan ve görev belgeleri eklendi/güncellendi.
 - Kişisel verilerin depoya girmemesi için `.gitignore` genişletildi.
 
