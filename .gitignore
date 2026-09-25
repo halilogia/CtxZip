@@ -1,0 +1,12 @@
+# Kişisel ayar (model adı, klasör yolları)
+ctxzip_ayar.json
+
+# Arşiv verisi asla bu repoya girmez: ham kayıtlar sohbet içeriği ve olası anahtarlar taşır
+CtxZip-Arsiv/
+AI-Arsiv/
+*.jsonl
+BAGLAM.md
+
+# Python
+__pycache__/
+*.pyc
