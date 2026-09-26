@@ -5,19 +5,17 @@
     "codex": ["$CODEX_HOME/sessions", "~/.codex/sessions"],
     "antigravity_brain": ["~/.gemini/antigravity/brain"]
   },
-  "proje_takma_adlari": {
-    "Godot AI Sidebar": "Godot-AI-Sidebar",
-    "Godot-AI-Sidebar": "Godot-AI-Sidebar"
-  },
-  "haric_projeler": ["Halil Emre", "Desktop"],
+  "proje_takma_adlari": {},
+  "haric_projeler": [],
   "llm": {
     "base_url": "http://127.0.0.1:20128/v1",
-    "model": "BURAYA-9ROUTER-MODEL-ADI",
+    "model": "YOUR-LLM-MODEL",
     "api_key_env": "CTXZIP_API_KEY",
     "timeout_sn": 300
   },
   "bolum_token": 25000,
   "cilt_bolum_sayisi": 8,
   "aktif_oturum_dk": 120,
-  "dusunceleri_dahil_et": false
+  "dusunceleri_dahil_et": false,
+  "language": "tr"
 }

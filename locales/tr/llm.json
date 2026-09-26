@@ -1,0 +1,15 @@
+{
+  "approval_prompt": "Bu metin ayarlı sağlayıcıya gönderilsin mi? [e/H]: ",
+  "approval_required": "LLM isteği gönderilmedi: etkileşimli onay yok. İnceledikten sonra --approved-send kullanın.",
+  "characters": "karakter",
+  "connection_failed": "Bağlantı kurulamadı: {{reason}}",
+  "empty_model_reply": "Model boş yanıt döndürdü",
+  "llm_model_missing": "llm.model ayarlı değil; bir model belirleyin veya --manual kullanın",
+  "llm_preview": "\n[LLM önizleme] Hedef: {{url}} · Model: {{model}}",
+  "preview_end": "--- ÖNİZLEME SONU ---",
+  "request_cancelled": "LLM isteği kullanıcı tarafından iptal edildi.",
+  "system": "SİSTEM",
+  "system_heading": "SİSTEM",
+  "user": "KULLANICI",
+  "user_heading": "KULLANICI"
+}

@@ -10,6 +10,7 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import ctxzip
 from ctxzip_core import llm
+from ctxzip_core.privacy import redact_secrets
 from scripts.check_staged import content_issues, path_issue
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
@@ -17,7 +18,7 @@ SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 
 class PrivacyTests(unittest.TestCase):
     def test_private_paths_are_blocked(self):
-        for path in ("ctxzip_ayar.json", "BAGLAM.md", "raw/oturum.txt",
+        for path in ("ctxzip_ayar.json", "ctxzip.settings.json", "BAGLAM.md", "raw/oturum.txt",
                      "docs/gelen/sohbet.md", "log.jsonl", ".env.local"):
             with self.subTest(path=path):
                 self.assertIsNotNone(path_issue(path))
@@ -28,9 +29,14 @@ class PrivacyTests(unittest.TestCase):
         fake = "sk-" + "A" * 32
         home = "C:" + chr(92) + "Users" + chr(92) + "Example" + chr(92) + "file"
         issues = content_issues(("key: " + fake + "\n" + home).encode())
-        self.assertIn("API anahtarı", issues)
-        self.assertIn("kişisel ev yolu", issues)
+        self.assertIn("API key", issues)
+        self.assertIn("personal home path", issues)
         self.assertNotIn(fake, repr(issues))
+
+    def test_secret_redaction_uses_selected_language(self):
+        fake = "sk-" + "C" * 32
+        self.assertEqual(redact_secrets("token=" + fake, "en"), "token=[REDACTED]")
+        self.assertEqual(redact_secrets("token=" + fake, "tr"), "token=[GİZLİ]")
 
     def test_llm_refusal_prevents_network(self):
         settings = {"llm": {"model": "test-model", "base_url": "http://127.0.0.1:1/v1"}}
@@ -39,8 +45,16 @@ class PrivacyTests(unittest.TestCase):
              mock.patch.object(llm.urllib.request, "urlopen") as request, \
              mock.patch("builtins.print"):
             with self.assertRaises(SystemExit):
-                ctxzip.llm_cagir(settings, "system", "user")
+                ctxzip.call_llm(settings, "system", "user")
         request.assert_not_called()
+
+    def test_sample_model_placeholders_prevent_network(self):
+        for model in ("YOUR-LLM-MODEL", "BURAYA-9ROUTER-MODEL-ADI"):
+            settings = {"llm": {"model": model, "base_url": "http://127.0.0.1:1/v1"}}
+            with self.subTest(model=model), mock.patch.object(llm.urllib.request, "urlopen") as request:
+                with self.assertRaises(RuntimeError):
+                    ctxzip.call_llm(settings, "system", "user")
+                request.assert_not_called()
 
     def test_preview_matches_redacted_network_body(self):
         fake = "sk-" + "B" * 32
@@ -49,7 +63,7 @@ class PrivacyTests(unittest.TestCase):
         reply = io.BytesIO(b'{"choices":[{"message":{"content":"ok"}}]}')
         with mock.patch.object(llm.urllib.request, "urlopen", return_value=reply) as request, \
              mock.patch("builtins.print") as printed:
-            self.assertEqual(ctxzip.llm_cagir(settings, "system", "token=" + fake), "ok")
+            self.assertEqual(ctxzip.call_llm(settings, "system", "token=" + fake), "ok")
         body = json.loads(request.call_args.args[0].data.decode("utf-8"))
         preview = "\n".join(str(arg) for call in printed.call_args_list for arg in call.args)
         self.assertNotIn(fake, str(body))
@@ -63,13 +77,13 @@ class PrivacyTests(unittest.TestCase):
             subprocess.run(["git", "init", "-q", str(repo)], check=True)
             target = repo / "BAGLAM.md"
             with self.assertRaises(SystemExit):
-                ctxzip.kopya_git_guvenli_mi(target)
+                ctxzip.ensure_git_safe_copy(target)
             (repo / ".gitignore").write_text("BAGLAM.md\n", encoding="utf-8")
-            ctxzip.kopya_git_guvenli_mi(target)
+            ctxzip.ensure_git_safe_copy(target)
             target.write_text("private", encoding="utf-8")
             subprocess.run(["git", "-C", str(repo), "add", "-f", "BAGLAM.md"], check=True)
             with self.assertRaises(SystemExit):
-                ctxzip.kopya_git_guvenli_mi(target)
+                ctxzip.ensure_git_safe_copy(target)
 
     def test_staged_guard_blocks_private_file_and_preserves_existing_hook(self):
         with tempfile.TemporaryDirectory() as tmp:

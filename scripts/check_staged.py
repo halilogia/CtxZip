@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Commit öncesinde yalnızca Git index'ine seçilmiş içerikleri denetler.
+"""Inspect only the content selected in the Git index before commit.
 
-Çıktı sırın kendisini göstermez. Bu kontrol bilinmeyen sırları yakalama garantisi vermez.
+Output never includes secret values. This check cannot guarantee detection of unknown secrets.
 """
 from __future__ import annotations
 
@@ -17,19 +17,19 @@ PRIVATE_PARTS = {
     "ctxzip-arsiv", "ai-arsiv", "raw", "dokum", "bolumler",
     "ciltler", "gelen",
 }
-PRIVATE_NAMES = {"ctxzip_ayar.json", "baglam.md", "durum.json"}
+PRIVATE_NAMES = {"ctxzip_ayar.json", "ctxzip.settings.json", "baglam.md", "durum.json"}
 PRIVATE_SUFFIXES = (".jsonl", ".pem", ".p12", ".pfx", ".sqlite", ".sqlite3")
 SECRET_PATTERNS = {
-    "API anahtarı": re.compile(
+    "API key": re.compile(
         rb"(?i)(?:sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|"
         rb"github_pat_[A-Za-z0-9_]{20,}|AIza[0-9A-Za-z_-]{30,}|AKIA[0-9A-Z]{16})"
     ),
-    "özel anahtar": re.compile(rb"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
-    "anahtar ataması": re.compile(
+    "private key": re.compile(rb"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
+    "key assignment": re.compile(
         rb"(?i)(?:api[_-]?key|access[_-]?token|secret|password|passwd)"
         rb"\s*[\"']?\s*[:=]\s*[\"']?[A-Za-z0-9_./+=-]{16,}"
     ),
-    "kişisel ev yolu": re.compile(
+    "personal home path": re.compile(
         rb"(?i)(?:[A-Z]:[\\/](?:Users|Documents and Settings)[\\/][^\\/\r\n]+|"
         rb"/(?:home|Users)/[^/\r\n]+)"
     ),
@@ -40,11 +40,11 @@ def path_issue(path: str) -> str | None:
     parts = path.replace("\\", "/").lower().split("/")
     name = parts[-1]
     if any(part in PRIVATE_PARTS for part in parts):
-        return "kişisel arşiv klasörü"
+        return "personal archive directory"
     if name in PRIVATE_NAMES or name.startswith(".env") and name != ".env.example":
-        return "kişisel ayar veya çıktı"
+        return "personal settings or output"
     if name.endswith(PRIVATE_SUFFIXES) or name.endswith(".key"):
-        return "hassas dosya türü"
+        return "sensitive file type"
     return None
 
 
@@ -60,7 +60,7 @@ def main() -> int:
     try:
         paths = run_git("diff", "--cached", "--name-only", "-z", "--diff-filter=ACMR")
     except (OSError, subprocess.CalledProcessError):
-        print("[CtxZip koruma] Git index okunamadı; commit durduruldu.", file=sys.stderr)
+        print("[CtxZip guard] Could not read the Git index; commit blocked.", file=sys.stderr)
         return 1
     blocked: list[tuple[str, str]] = []
     for raw_path in paths.split(b"\0"):
@@ -74,16 +74,16 @@ def main() -> int:
         try:
             content = run_git("show", f":{path}")
         except (OSError, subprocess.CalledProcessError):
-            blocked.append((path, "seçilmiş içerik okunamadı"))
+            blocked.append((path, "could not read staged content"))
             continue
         blocked.extend((path, issue) for issue in content_issues(content))
     if blocked:
-        print("[CtxZip koruma] Commit durduruldu. İçerikler yazdırılmadı:", file=sys.stderr)
+        print("[CtxZip guard] Commit blocked. File contents were not printed:", file=sys.stderr)
         for path, reason in blocked:
             print(f"  {path}: {reason}", file=sys.stderr)
-        print("Dosyayı index'ten çıkarıp içeriği gözden geçirin.", file=sys.stderr)
+        print("Unstage the file and review its contents.", file=sys.stderr)
         return 1
-    print("[CtxZip koruma] Seçilmiş dosyalar denetlendi.")
+    print("[CtxZip guard] Staged files checked.")
     return 0
 
 

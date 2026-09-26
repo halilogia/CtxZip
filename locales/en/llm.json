@@ -1,0 +1,15 @@
+{
+  "approval_prompt": "Send this text to the configured provider? [y/N]: ",
+  "approval_required": "LLM request was not sent: interactive approval is unavailable. Review it, then use --approved-send.",
+  "characters": "characters",
+  "connection_failed": "Connection failed: {{reason}}",
+  "empty_model_reply": "The model returned an empty response",
+  "llm_model_missing": "llm.model is not set; configure a model or use --manual",
+  "llm_preview": "\n[LLM preview] Target: {{url}} · Model: {{model}}",
+  "preview_end": "--- END PREVIEW ---",
+  "request_cancelled": "LLM request cancelled by the user.",
+  "system": "SYSTEM",
+  "system_heading": "SYSTEM",
+  "user": "USER",
+  "user_heading": "USER"
+}

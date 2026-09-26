@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Var olan pre-commit hook'unu saklayarak CtxZip kontrolünü önüne ekler."""
+"""Install the CtxZip guard while preserving any existing pre-commit hook."""
 from __future__ import annotations
 
 import os
@@ -25,7 +25,7 @@ def main() -> None:
             print("CtxZip commit guard already installed.")
             return
         if backup.exists():
-            raise SystemExit(f"Yedek zaten var; hook değiştirilmedi: {backup}")
+            raise SystemExit(f"Backup already exists; hook was not changed: {backup}")
         backup.write_bytes(hook.read_bytes())
         os.chmod(backup, hook.stat().st_mode)
     hook.parent.mkdir(parents=True, exist_ok=True)

@@ -1,10 +1,11 @@
-# Kişisel ayar ve sırlar
+# Private settings and secrets
 ctxzip_ayar.json
+ctxzip.settings.json
 .env
 .env.*
 !.env.example
 
-# Kişisel arşiv ve üretilen bağlam
+# Personal archives and generated context
 CtxZip-Arsiv/
 AI-Arsiv/
 raw/
@@ -16,7 +17,7 @@ durum.json
 BAGLAM.md
 *.jsonl
 
-# Python, editör ve yerel sistem
+# Python, editor, and local-system files
 __pycache__/
 *.py[cod]
 .pytest_cache/

@@ -1,1 +1,1 @@
-"""CtxZip veri ve ağ sınırı yardımcıları."""
+"""Helpers for CtxZip data and network boundaries."""

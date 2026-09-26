@@ -1,0 +1,3 @@
+{
+  "copy_blocked": "Context was not copied: {{path}} is tracked by Git or is not ignored. Add BAGLAM.md to the target repository's .gitignore and confirm that it is untracked."
+}

@@ -1,0 +1,3 @@
+{
+  "copy_blocked": "Bağlam kopyalanmadı: {{path}} Git deposunda izleniyor veya ignore edilmiyor. Hedef deponun .gitignore dosyasına BAGLAM.md ekleyin ve izlenmediğini doğrulayın."
+}
