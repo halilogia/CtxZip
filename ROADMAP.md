@@ -16,10 +16,12 @@ This document describes targets, not claims that features are complete. Implemen
 
 ## 0.3 — More relevant context
 
-- First small step: a lexical and exact-match selector accepting task/file/commit inputs; compare its reasons and results with recency ordering.
+- First step implemented: a lexical and exact-match selector accepts task/file/symbol/commit/current-diff inputs, penalizes explicitly stale candidates, and can explain included summaries. A small sanitized evaluation compares relevance, stale-context rate, token efficiency, and source coverage with recency; expand the benchmark before tuning weights or claiming quality.
 - Find relevant summaries by task, file, symbol, and commit.
 - Flag outdated decision and test claims against current Git/test evidence.
 - Source-linked decision/test records separate from processing state; validate against Git SHA and uncommitted working-tree changes.
+- First priority-section planner composes existing records, optional Git/test evidence, and relevant summaries under an approximate budget. Chapter source hashes are checked against readable current turns; changed/shortened Chapters and containing Volumes are excluded without overwriting manual edits. Balanced mode admits recent raw turns outside current Chapter ranges. Missing legacy hashes, parser-version uncertainty, orphan summaries, and broader cross-Volume overlap remain open.
+- `BAGLAM.md` has a versioned machine-readable metadata header with source and Git provenance; a future `CONTEXT.md` alias/migration remains compatibility-gated.
 - Calibrate token estimates and evaluate source-linked summary quality.
 
 Prioritize this stage's first selector after 0.2 write reliability is in place. Embeddings and a separate service are not prerequisites; detailed acceptance criteria are in the [plan](docs/PLAN.md).
@@ -33,7 +35,7 @@ Prioritize this stage's first selector after 0.2 write reliability is in place. 
 
 ## 0.5 — Retrieval quality and freshness
 
-- Add explainable relevance scoring, duplicate/overlap handling, freshness checks, and layered context budgeting.
+- Add explainable relevance scoring, duplicate/overlap handling, freshness checks, and layered context budgeting. A first balanced profile now applies proportional caps and reserves recent-raw/safety capacity and includes unsummarized raw turns; rewritten-source and Chapter/Volume overlap handling remain open.
 - Compare task-aware retrieval with recency-only selection on a maintained evaluation set.
 - Consider SQLite/FTS only when archive size or query needs justify an index; do not require a separate vector service.
 

@@ -33,6 +33,7 @@ CtxZip archives local sessions from different AI coding tools by project, conver
 - Raw records and current code take precedence over summaries. A summary may be wrong or out of date.
 - A Chapter covers the turn range of exactly one session. The final segment of an active session waits until the closing threshold is met.
 - Incomplete Chapters must not be included in a Volume or a `BAGLAM.md` context package.
+- When archive state provides source-turn coverage, exclude a summary only if higher-ranked summaries collectively cover its entire range in the same session. Keep partial-overlap and manually edited summaries to avoid discarding unique information; incomplete provenance is not guessed.
 - Preserve summaries manually edited by the user when rerunning the process.
 - Keep `durum.json`, Chapter/Volume files, and source turn ranges consistent. Prevent data loss after partial failures.
 - Do not silently change project matching, source turn/commit attribution, or context budgets.
@@ -49,10 +50,15 @@ CtxZip archives local sessions from different AI coding tools by project, conver
 ## Documentation map
 
 - `README.md`: user setup and limitations.
+- `docs/INSTALLATION.md`: cross-platform setup and safe unattended scheduling.
 - `ARCHITECTURE.md`: data flow and layers.
 - `ROADMAP.md`: target releases.
 - `docs/PLAN.md`: implementation phases; `docs/TASKS.md`: open work.
 - `docs/KNOWLEDGE.md`: verified technical knowledge and uncertainties.
+- `docs/adr/`: accepted architecture decisions and supersession history.
+- `docs/PROJECT_HANDOFF.md`: temporary status for the current multi-step effort; refresh or remove it when the work ends.
+- `CONTRIBUTING.md`: contribution setup, validation, compatibility, and privacy expectations.
+- `.editorconfig`: editor-independent whitespace and encoding defaults.
 - `CHANGELOG.md`: user-visible changes.
 
 Finish the current task before expanding its scope; record new ideas in the relevant plan or task document.
