@@ -1,29 +1,48 @@
-# Mimari
+# Architecture
 
-CtxZip, Python 3.10+ standart kütüphanesi kullanan bir CLI uygulamasıdır. `ctxzip.py` komutları ve veri akışını yönetir; güvenlik ve dış dünya sınırları `ctxzip_core/` modüllerindedir.
+CtxZip is a CLI application that uses the Python 3.10+ standard library. `ctxzip.py` manages commands and data flow; security and external-system boundaries live in `ctxzip_core/`.
 
 ```text
-kaynak tarayıcıları → topla → raw/
-raw/ → biçim ayrıştırıcıları → dokum/
-turlar → ozetle → bolumler/ → ciltler/
-bolumler/ + ciltler/ → baglam → BAGLAM.md
+source discovery → collect → raw/
+raw/ → format parsers → dokum/
+turns → summarize → bolumler/ → ciltler/
+bolumler/ + ciltler/ → context → BAGLAM.md
 ```
 
-| Katman | Rolü | Sınırı |
+| Layer | Role | Boundary |
 | --- | --- | --- |
-| `raw/` | Kaynak kopyası | Oturum büyüdükçe güncellenir. Kaynak küçülürse önceki kopya ayrıca saklanır. Gizli veri içerebilir. |
-| `dokum/` | Okunabilir Markdown | Araç çıktıları kısaltılır; ham kaydın yerini almaz. |
-| `bolumler/` | Tek oturumun tur aralıkları | Kaynak turu ve hash üst verisi vardır; özet yanlış olabilir. |
-| `ciltler/` | Dolu Bölümlerin üst özeti | Ayrıntı kaybı artar. |
-| `durum.json` | İşlenmiş aralıklar ve Bölüm/Cilt ilişkileri | İşlem durumudur, sohbet kaynağı değildir. |
-| `BAGLAM.md` | Yeni sohbet paketi | Kod, Git ve testin yerine geçmez. |
+| `raw/` | Source copy | Updated as a session grows. If a source shrinks, the previous copy is saved separately. May contain sensitive data. |
+| `transcripts/` (`dokum/` in existing archives) | Readable Markdown | Tool output is truncated; this does not replace the raw record. |
+| `chapters/` (`bolumler/`) | Turn ranges from one session | Includes source-turn and hash metadata; summaries may be wrong. |
+| `volumes/` (`ciltler/`) | Higher-level summaries of completed chapters | Detail is progressively lost. |
+| `state.json` (`durum.json`) | Processed ranges and chapter/volume relationships | Processing state, not the source conversation. |
+| `CONTEXT.md` (`BAGLAM.md`) | New-session context pack | Does not replace code, Git, or tests. |
 
-Kod haritası: `ctxzip.py` içindeki `kaynaklari_bul/topla` kaynakları kopyalar; `claude_turlari/codex_turlari/antigravity_turlari/elle_turlari` kaydı `Tur` nesnelerine çevirir; `dokum_yaz` okunabilir metin oluşturur; `ozetle/cilt_katla` özetleri düzenler; `baglam` doldurulmuş özetleri seçer. `ctxzip_core/privacy.py` maskeleme, `ctxzip_core/llm.py` önizleme/onay/ağ çağrısı, `ctxzip_core/git_safety.py` hedef deponun ignore kontrolünden sorumludur.
+## Module map
 
-Bağımlılık yönü: `ctxzip.py → ctxzip_core`; `llm.py → privacy.py`. Çekirdek modüller CLI dosyasını içe aktarmaz. Yeni kaynak ayrıştırıcıları ve özetleme durum yönetimi bu sınırlara göre ayrılmalıdır; modüller arasında döngü kurulmaz.
+| Module | Responsibility |
+| --- | --- |
+| `ctxzip.py` | Settings, source discovery/copying, project selection, transcripts, context, and CLI commands |
+| `ctxzip_core/parsers.py` | Parser facade for source selection and Turkish compatibility exports |
+| `ctxzip_core/parser_common.py` | Shared `Turn` model, JSONL reading, working-directory discovery, and tool summaries |
+| `ctxzip_core/parser_claude.py`, `parser_codex.py`, `parser_antigravity.py`, `parser_manual.py` | Provider-specific source format parsers behind the shared turn model |
+| `ctxzip_core/sessions.py` | Listing archived/incoming sessions and generating short session IDs |
+| `ctxzip_core/text.py` | Shared text cleanup, timestamp formatting, hashing, and approximate token counting |
+| `ctxzip_core/chunking.py` | Turn budgeting and chapter chunking |
+| `ctxzip_core/summary_store.py` | `durum.json`, summary metadata, body hashes, and manual-edit detection |
+| `ctxzip_core/prompts.py` | Chapter/volume prompts and prompt version |
+| `ctxzip_core/i18n.py` | Locale resolution, namespace catalog loading, fallback, named interpolation, and validation (`locales/<locale>/<namespace>.json`) |
+| `ctxzip_core/summarizing.py` | Fills pending summaries, creates chapters/volumes, and manages state transitions for one project |
+| `ctxzip_core/privacy.py`, `llm.py`, `git_safety.py` | Redaction, approval/network calls, and Git copy boundary |
 
-Bir Bölüm oturum sınırını aşmaz. Aktif oturumun son parçası bekletilir. Doldurulmamış Bölüm Cilt'e veya bağlam paketine girmez. Özet, kaynak kaydın ve güncel projenin yerine geçmez.
+Dependency direction is `ctxzip.py → ctxzip_core`. `summarizing` uses session/parser, chunking, summary-store, prompt, and LLM modules. Source parsers use `parser_common` and `text`; `sessions → parsers → parser_common`, `chunking → parsers/text`, `summary_store → text`, and `llm → privacy`. Core modules do not import the CLI; a static import-graph test checks for cycles. Older helper names are compatibility aliases on the facade and CLI. Tests mock LLM calls at the `ctxzip_core.summarizing.call_llm` boundary.
 
-Başlıca mimari borç: kaynak ayrıştırıcıları ve özetleme durum yönetimi hâlâ `ctxzip.py` içinde; biçim değişiklikleri için test kapsamı, atomik yazma ve görevle ilgili özet seçimi eksik. Bunları davranışı koruyan küçük adımlarla ayırma hedefi [görevlerde](docs/TASKS.md).
+The CLI selects projects and calls `summarize_project`. If a chapter LLM call fails, the core returns `False` and the command stops instead of continuing to other projects, matching prior behavior. Write ordering, file formats, and turn numbering are preserved. English names are primary in the Python API; older Turkish names remain compatibility aliases. Turkish on-disk directory names, JSON keys, and summary metadata remain unchanged to preserve existing user archives.
 
-Gönderim sınırı: `llm_cagir` bilinen sır kalıplarını temizler, isteğin tam metnini ve hedefini önizler; etkileşimli onay veya açık `--onayli-gonder` olmadan ağ isteği yapmaz. Git sınırı: `baglam --kopyala` hedef depoda dosyanın izlenmemesini ve ignore edilmesini ister; `scripts/check_staged.py` seçilmiş index içeriğini tarar; `scripts/install_hook.py` mevcut `pre-commit` hook'unu koruyarak denetimi ekler. Bunlar kapsamlı veri kaybı önleme sistemi değildir.
+A chapter never crosses a session boundary. The final chunk of an active session is held back. Incomplete chapters are excluded from volumes and context packs. A summary does not replace the source record or the current project state.
+
+## Known architectural debt
+
+File and state writes are not atomic, and there is no reconciliation after interruption. If a source is rewritten or shortened within the same turn range, existing summaries are not reevaluated. State dictionaries have no formal schema; source discovery/copying, transcript generation, and context selection still live in the CLI. Coverage against real source-format versions and task-relevant summary selection are incomplete. See the [task list](docs/TASKS.md).
+
+Before sending, `call_llm` redacts known secret patterns and previews the full prompt and destination. It makes no network request without interactive approval or the explicit `--approved-send` / `--onayli-gonder` option. For Git safety, `context --copy` / `baglam --kopyala` requires the destination file to be untracked and ignored by the target repository. `scripts/check_staged.py` scans selected index content; `scripts/install_hook.py` installs the check while preserving an existing `pre-commit` hook. These measures are not comprehensive data-loss prevention.

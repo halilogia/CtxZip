@@ -1,52 +1,58 @@
-# AGENTS.md — CtxZip ajan kılavuzu
+# AGENTS.md — CtxZip Agent Guide
 
-Bu dosya CtxZip deposunda çalışan Codex, Claude Code, Antigravity ve diğer kodlama ajanları içindir. Güncel davranışın kaynağı `ctxzip.py` ve test sonuçlarıdır; bu dosyadaki geçmiş gözlemler güncel doğrulamanın yerine geçmez.
+This guide is for Codex, Claude Code, Antigravity, and other coding agents working in the CtxZip repository. The current behavior is defined by `ctxzip.py` and test results; historical observations in this guide do not replace current verification.
 
-## Proje amacı
+## Project purpose
 
-CtxZip, farklı AI kodlama araçlarının yerel oturumlarını proje bazında arşivler, okunabilir döküme çevirir, Bölüm/Cilt özetleri oluşturur ve yeni sohbet için `BAGLAM.md` hazırlar. Python 3.10+ standart kütüphanesiyle çalışan bir CLI'dır. Komut akışı `ctxzip.py`; gizlilik, LLM ve Git sınırları `ctxzip_core/` içindedir.
+CtxZip archives local sessions from different AI coding tools by project, converts them into readable transcripts, creates Chapter/Volume summaries, and prepares `BAGLAM.md` for a new conversation. It is a CLI that uses the Python 3.10+ standard library. Command orchestration lives in `ctxzip.py`; privacy, LLM, and Git boundaries live in `ctxzip_core/`.
 
-## İşe başlarken
+## Before you start
 
-1. `README.md`, `ARCHITECTURE.md`, `docs/KNOWLEDGE.md` dosyalarını ve göreve göre `docs/PLAN.md` / `docs/TASKS.md` dosyalarını oku.
-2. `git status --short` ile çalışma ağacını kontrol et. Kullanıcının mevcut değişikliklerini koru.
-3. İlgili kod yolunu ve kaynak biçimini incele; eski bir özetin iddiasını kanıt sayma.
-4. Yeni özellik veya davranış değişikliğinde README, mimari, görevler ve CHANGELOG etkisini değerlendir.
+1. Read `README.md`, `ARCHITECTURE.md`, and `docs/KNOWLEDGE.md`, plus `docs/PLAN.md` and/or `docs/TASKS.md` as relevant to the task.
+2. Check the working tree with `git status --short`. Preserve the user's existing changes.
+3. Inspect the relevant code path and source format; do not treat claims in an old summary as evidence.
+4. For a new feature or behavior change, assess its impact on the README, architecture, task list, and CHANGELOG.
 
-## Veri sınırları
+## Code language and project conventions
 
-- `~/CtxZip-Arsiv`, `raw/`, `dokum/`, `bolumler/`, `ciltler/`, `gelen/`, `BAGLAM.md`, `ctxzip_ayar.json` ve `.env` kişisel veri veya sır içerebilir. Bunları açık depoya, örnek dosyaya, issue'ya veya model istemine gelişigüzel koyma.
-- Gerçek oturumlarla test gerekiyorsa yalnızca gereken en küçük kesiti kullan; kalıcı test fikstürüne koymadan önce kişisel veriyi çıkar ve yeniden kontrol et.
-- `gizli_temizle` sınırlı bir savunmadır. Bütün sırları bulduğunu veya LLM'e veri göndermenin güvenli olduğunu iddia etme.
-- `--elle` modunda otomatik LLM çağrısı yapılmaz. Otomatik özetlemede seçilen sağlayıcıya metin gönderilir; bu ayrımı koru.
-- LLM önizlemesi ve varsayılan onay kapısını kaldırma. `--onayli-gonder` yalnızca kullanıcının açık otomasyon tercihidir.
-- Commit koruması index'i tarar; yeni klonda `scripts/install_hook.py` gerekir. Mevcut hook'u silme veya sessizce değiştirme.
+- Write new source filenames, Python symbols, variable and parameter names, comments, docstrings, and developer documentation in English. Use the localization catalogs for user-facing text; add new strings to both the TR and EN namespace catalogs.
+- Do not rename existing Turkish public APIs or on-disk directory, file, or JSON-key names without assessing compatibility. When needed, add an English API, retain the old name as a compatibility alias, and document and test the migration.
+- Follow universal software engineering principles: one-way dependencies, small modules with focused responsibilities, consistent naming, explicit error behavior, and focused tests that meaningfully verify behavior. Avoid unnecessary abstractions and dependencies.
 
-## Davranış değişmezleri
+## Data boundaries
 
-- Ham kayıt ve güncel kod, özetlerden üstündür. Özet yanlış veya eski olabilir.
-- Bir Bölüm yalnızca tek oturumun tur aralığını kapsar. Aktif oturumun son parçası kapanma eşiğine kadar bekler.
-- Doldurulmamış Bölümler Cilt'e veya `BAGLAM.md` paketine girmez.
-- Kullanıcının elle düzelttiği özetleri yeniden çalıştırırken koru.
-- `durum.json`, Bölüm/Cilt dosyaları ve kaynak tur aralıkları tutarlı kalmalı. Yarım başarısızlıkta veri kaybını önle.
-- Proje eşlemesini, kaynak turu/commit atfını ve bağlam bütçesini sessizce değiştirme.
-- Bağımlılık yönünü `ctxzip.py → ctxzip_core` olarak koru. Çekirdek modüller CLI'ı içe aktarmasın; ayrıştırıcıları ve özetleme durumunu ileride küçük, testli adımlarla taşı.
-- Antigravity desteğini tam transkript olarak sunma: mevcut kod erişilen Markdown artefaktlarını toplar.
+- `~/CtxZip-Arsiv`, `raw/`, `dokum/`, `bolumler/`, `ciltler/`, `gelen/`, `BAGLAM.md`, `ctxzip.settings.json`, legacy `ctxzip_ayar.json`, and `.env` may contain personal data or secrets. Do not casually include them in the public repository, sample files, issues, or model prompts.
+- If testing with real sessions is necessary, use only the smallest required excerpt. Remove personal data and review it again before adding it to a persistent test fixture.
+- `gizli_temizle` is a limited safeguard. Do not claim that it finds every secret or that sending data to an LLM is safe.
+- Automatic LLM calls are not made in `--elle` mode. Automatic summarization sends text to the selected provider; preserve this distinction.
+- Do not remove the LLM preview or the default confirmation gate. `--onayli-gonder` represents only the user's explicit automation preference.
+- The commit guard scans the Git index; a fresh clone requires `scripts/install_hook.py`. Do not delete or silently modify an existing hook.
 
-## Doğrulama
+## Behavioral invariants
 
-- En azından `python ctxzip.py --help` ve değişen komutun dar kapsamlı bir denemesini çalıştır.
-- Parser veya özetleme mantığı değişirse kişisel verisi temizlenmiş gerçek biçim örnekleriyle; tekrar çalıştırma, büyüyen/kısalan kaynak, manuel düzeltme ve hata sonrası devam senaryolarını sınamayı tercih et.
-- Ağ/LLM davranışını mock veya `--elle` testiyle doğrulanmış sayma. Gerçek sağlayıcı testi yapılmadıysa açıkça belirt.
-- Test komutunu ve sonucu raporla. Test edilemeyen davranışı doğrulanmış gibi yazma.
+- Raw records and current code take precedence over summaries. A summary may be wrong or out of date.
+- A Chapter covers the turn range of exactly one session. The final segment of an active session waits until the closing threshold is met.
+- Incomplete Chapters must not be included in a Volume or a `BAGLAM.md` context package.
+- Preserve summaries manually edited by the user when rerunning the process.
+- Keep `durum.json`, Chapter/Volume files, and source turn ranges consistent. Prevent data loss after partial failures.
+- Do not silently change project matching, source turn/commit attribution, or context budgets.
+- Preserve the dependency direction `ctxzip.py → ctxzip_core`. Core modules must not import the CLI. Keep provider parsers in small, focused `ctxzip_core/parser_*.py` modules.
+- Do not describe Antigravity support as full transcripts: the current code collects the Markdown artifacts it can access.
 
-## Belge haritası
+## Verification
 
-- `README.md`: kullanıcı kurulumu ve sınırlar.
-- `ARCHITECTURE.md`: veri akışı ve katmanlar.
-- `ROADMAP.md`: hedef sürümler.
-- `docs/PLAN.md`: uygulama aşamaları; `docs/TASKS.md`: açık işler.
-- `docs/KNOWLEDGE.md`: doğrulanmış teknik bilgi ve belirsizlikler.
-- `CHANGELOG.md`: kullanıcıya görünür değişiklikler.
+- At a minimum, run `python ctxzip.py --help` and a focused check of the changed command.
+- If parser or summarization logic changes, prefer testing with sanitized examples in the actual source format, including reruns, growing and shrinking sources, manually edited summaries, and recovery after failure.
+- Do not treat mocked or `--elle` checks as verification of network/LLM behavior. Clearly state when no real provider test was performed.
+- Report the test commands and results. Do not claim untested behavior is verified.
 
-Görev kapsamını genişletmeden önce mevcut hedefi bitir; yeni fikirleri ilgili plan veya görev belgesine kaydet.
+## Documentation map
+
+- `README.md`: user setup and limitations.
+- `ARCHITECTURE.md`: data flow and layers.
+- `ROADMAP.md`: target releases.
+- `docs/PLAN.md`: implementation phases; `docs/TASKS.md`: open work.
+- `docs/KNOWLEDGE.md`: verified technical knowledge and uncertainties.
+- `CHANGELOG.md`: user-visible changes.
+
+Finish the current task before expanding its scope; record new ideas in the relevant plan or task document.
