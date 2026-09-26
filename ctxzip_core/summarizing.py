@@ -5,7 +5,7 @@ import time
 from .chunking import group_chapters, truncate_turn
 from .i18n import summary_prompt_version, translate
 from .llm import call_llm
-from .parsers import read_session
+from .parsers import PARSER_VERSIONS, read_session
 from .privacy import redact_secrets
 from .prompts import arc_prompt, chapter_prompt
 from .sessions import list_sessions, short_id
@@ -15,6 +15,16 @@ from .summary_store import (
 )
 from .storage import atomic_write_text
 from .text import format_timestamp, text_hash
+from .source_freshness import chapter_source_hash
+from .summary_recovery import (
+    SummaryRecoveryError, next_summary_number, reconcile_orphan_summaries,
+)
+
+
+def _write_prompt_if_missing(prompt_path: Path, content: str) -> None:
+    """Create a manual prompt once, preserving edits across interrupted retries."""
+    if not prompt_path.exists():
+        atomic_write_text(prompt_path, content)
 
 
 def fill_pending_summaries(settings: dict, project_dir: Path) -> int:
@@ -55,7 +65,16 @@ def fold_volume(settings: dict, project_dir: Path, state: dict, manual: bool) ->
     created_count = 0
     while True:
         unassigned = [chapter for chapter in state["bolumler"] if chapter["cilt"] is None]
-        chapter_group = unassigned[:settings["cilt_bolum_sayisi"]]
+        group_size = settings["cilt_bolum_sayisi"]
+        chapter_group = []
+        for start in range(max(0, len(unassigned) - group_size + 1)):
+            possible_group = unassigned[start:start + group_size]
+            if all(
+                later["no"] == earlier["no"] + 1
+                for earlier, later in zip(possible_group, possible_group[1:])
+            ):
+                chapter_group = possible_group
+                break
         if len(chapter_group) < settings["cilt_bolum_sayisi"]:
             return created_count
         pending = [chapter for chapter in chapter_group
@@ -64,7 +83,7 @@ def fold_volume(settings: dict, project_dir: Path, state: dict, manual: bool) ->
             print(translate(language, "arc_waiting", project=project_dir.name, count=len(pending)))
             return created_count
 
-        volume_number = len(state["ciltler"]) + 1
+        volume_number = next_summary_number(state["ciltler"])
         first_number, last_number = chapter_group[0]["no"], chapter_group[-1]["no"]
         section_label = translate(language, "chapter_label")
         chapter_sections = []
@@ -84,7 +103,7 @@ def fold_volume(settings: dict, project_dir: Path, state: dict, manual: bool) ->
         system_prompt = arc_prompt(language)
         if manual:
             prompt_path = volume_dir / f"C{volume_number:03d}.istem.md"
-            atomic_write_text(
+            _write_prompt_if_missing(
                 prompt_path,
                 f"# {translate(language, 'system_heading')}\n\n{system_prompt}\n\n"
                 f"# {translate(language, 'user_heading')}\n\n{user_prompt}\n")
@@ -113,6 +132,12 @@ def summarize_project(settings: dict, project_dir: Path, manual: bool) -> bool |
     language = settings.get("language", "tr")
     system_prompt = chapter_prompt(language)
     state = load_summary_state(project_dir)
+    try:
+        if reconcile_orphan_summaries(project_dir, state):
+            save_summary_state(project_dir, state)
+    except SummaryRecoveryError as error:
+        print(translate(language, "summary_recovery_blocked", file=error.filename))
+        return False
     chapter_dir = project_dir / "bolumler"
     chapter_dir.mkdir(exist_ok=True)
     if not manual and settings["llm"].get("model"):
@@ -140,11 +165,16 @@ def summarize_project(settings: dict, project_dir: Path, manual: bool) -> bool |
                                     session=session_key, count=len(chunk))
                 print(f"[{translate(language, 'summary_label')}] {message}")
                 continue
-            chapter_number = len(state["bolumler"]) + 1
-            source_text = "\n\n".join(
-                f"## [T{turn.number}] {turn.timestamp}\n{truncate_turn(turn.text(), settings['bolum_token'], language)}" for turn in chunk)
-            source_text = redact_secrets(source_text, language)
+            chapter_number = next_summary_number(state["bolumler"])
             first_turn, last_turn = chunk[0].number, chunk[-1].number
+            source_hash = chapter_source_hash(
+                chunk, first_turn, last_turn, settings["bolum_token"], language,
+            )
+            source_text = "\n\n".join(
+                f"## [T{turn.number}] {turn.timestamp}\n{truncate_turn(turn.text(), settings['bolum_token'], language)}"
+                for turn in chunk
+            )
+            source_text = redact_secrets(source_text, language)
             user_prompt = translate(language, "chapter_input", project=project_dir.name, tool=tool_name,
                                     session=short_id(session_id), first=first_turn, last=last_turn,
                                     transcript=source_text)
@@ -152,13 +182,15 @@ def summarize_project(settings: dict, project_dir: Path, manual: bool) -> bool |
             summary_path = chapter_dir / f"B{chapter_number:04d}.md"
             metadata = {"tur": "bolum", "no": chapter_number, "kaynak": session_key,
                         "turlar": f"T{first_turn}-T{last_turn}", "tarih": chunk[0].timestamp,
-                        "kaynak_hash": text_hash(source_text), "prompt": summary_prompt_version(language)}
+                        "kaynak_hash": source_hash or text_hash(source_text), "source_language": language,
+                        "parser_version": PARSER_VERSIONS.get(tool_name, ""),
+                        "prompt": summary_prompt_version(language)}
             chapter_label = translate(language, "chapter_label")
             title = (f"{chapter_label} {chapter_number} — {chunk[0].timestamp[:10]} · {tool_name} "
                      f"{short_id(session_id)} · T{first_turn}–T{last_turn}")
             if manual:
                 prompt_path = chapter_dir / f"B{chapter_number:04d}.istem.md"
-                atomic_write_text(
+                _write_prompt_if_missing(
                     prompt_path,
                     f"# {translate(language, 'system_heading')}\n\n{system_prompt}\n\n"
                     f"# {translate(language, 'user_heading')}\n\n{user_prompt}\n")

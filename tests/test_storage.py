@@ -1,4 +1,7 @@
 from pathlib import Path
+import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -34,6 +37,26 @@ class AtomicStorageTests(unittest.TestCase):
         storage.atomic_write_json(target, {"project": "İş", "count": 2})
 
         self.assertEqual(target.read_text(encoding="utf-8"), '{\n  "project": "İş",\n  "count": 2\n}')
+
+    def test_process_exit_before_atomic_replace_keeps_previous_target_intact(self):
+        target = self.root / "state.json"
+        target.write_text("old", encoding="utf-8")
+        script = (
+            "import os, sys; from pathlib import Path; "
+            "from ctxzip_core import storage; "
+            "target=Path(sys.argv[1]); "
+            "storage.os.replace=lambda *args: os._exit(75); "
+            "storage.atomic_write_text(target, 'new')"
+        )
+        completed = subprocess.run(
+            [sys.executable, "-c", script, str(target)],
+            cwd=Path(__file__).resolve().parents[1], capture_output=True, check=False,
+        )
+
+        self.assertEqual(completed.returncode, 75)
+        self.assertEqual(target.read_text(encoding="utf-8"), "old")
+        # A hard process exit can strand a temporary file, but it cannot expose partial state.
+        self.assertEqual(len(self.temporary_files(target)), 1)
 
     def test_copy_failure_keeps_old_target_and_cleans_partial_file(self):
         source = self.root / "source.jsonl"

@@ -54,6 +54,20 @@ class LocalizationTests(unittest.TestCase):
                 ctxzip.main()
             self.assertIn(text, output.getvalue())
 
+    def test_knowledge_capture_help_uses_selected_language(self):
+        expected = {
+            "en": "Private archive project name",
+            "tr": "Özel arşivdeki proje adı",
+        }
+        for language, text in expected.items():
+            output = io.StringIO()
+            with self.subTest(language=language), mock.patch.object(
+                sys, "argv", ["ctxzip.py", "--language", language, "knowledge", "add", "--help"]
+            ), mock.patch.object(ctxzip, "load_settings", return_value={"language": "tr"}), \
+                    contextlib.redirect_stdout(output), self.assertRaises(SystemExit):
+                ctxzip.main()
+            self.assertIn(text, output.getvalue())
+
     def test_parser_localizes_generated_labels_without_changing_user_body(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "session.jsonl"
@@ -122,10 +136,13 @@ class LocalizationTests(unittest.TestCase):
             english_settings = app_dir / "ctxzip.settings.json"
             legacy_settings = app_dir / "ctxzip_ayar.json"
             self.assertEqual(ctxzip.default_settings_path(app_dir), english_settings)
-            legacy_settings.touch()
+            legacy_settings.write_text('{"language":"en"}', encoding="utf-8")
             self.assertEqual(ctxzip.default_settings_path(app_dir), legacy_settings)
+            self.assertEqual(ctxzip.load_settings(ctxzip.default_settings_path(app_dir))["language"], "en")
             english_settings.touch()
             self.assertEqual(ctxzip.default_settings_path(app_dir), english_settings)
+            english_settings.write_text('{"language":"tr"}', encoding="utf-8")
+            self.assertEqual(ctxzip.load_settings(ctxzip.default_settings_path(app_dir))["language"], "tr")
 
 
 if __name__ == "__main__":

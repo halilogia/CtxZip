@@ -1,0 +1,35 @@
+[
+  {
+    "kind": "metadata",
+    "role": "system",
+    "text": "branch:main",
+    "tool_name": null,
+    "tool_input_summary": null,
+    "tool_output": null,
+    "timestamp": "2026-01-01T00:00:00Z",
+    "turn_number": 0,
+    "record_index": 0
+  },
+  {
+    "kind": "user_message",
+    "role": "user",
+    "text": "Sanitized example message.\nSanitized example message.\nSanitized example message.",
+    "tool_name": null,
+    "tool_input_summary": null,
+    "tool_output": null,
+    "timestamp": "2026-01-01T00:00:00Z",
+    "turn_number": 1,
+    "record_index": 1
+  },
+  {
+    "kind": "assistant_message",
+    "role": "assistant",
+    "text": "Sanitized example message.",
+    "tool_name": null,
+    "tool_input_summary": null,
+    "tool_output": null,
+    "timestamp": "2026-01-01T00:00:00Z",
+    "turn_number": 1,
+    "record_index": 2
+  }
+]

@@ -15,6 +15,9 @@ ciltler/
 gelen/
 durum.json
 BAGLAM.md
+CONTEXT.md
+knowledge/
+.ctxzip-events/
 *.jsonl
 
 # Python, editor, and local-system files

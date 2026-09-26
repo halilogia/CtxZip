@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "evidence_level": "synthetic-manual-labels",
+  "scope_note": "A deterministic regression for parser event source references and manually labeled claim support. It is not a real-session or summary-quality benchmark.",
+  "cases": [
+    {
+      "case_id": "codex-normal-event-and-summary-provenance",
+      "parser": "codex",
+      "expected_parser_version": "1",
+      "source_fixture": "codex/normal.jsonl.fixture",
+      "expected_events": [
+        {"record_index": 0, "turn_number": 0, "kind": "metadata"},
+        {"record_index": 1, "turn_number": 1, "kind": "user_message"},
+        {"record_index": 2, "turn_number": 1, "kind": "assistant_message"}
+      ],
+      "claims": [
+        {
+          "id": "branch-main",
+          "supported": true,
+          "source_events": [[0, 0, "metadata"]]
+        },
+        {
+          "id": "user-message-exists",
+          "supported": true,
+          "source_events": [[1, 1, "user_message"]]
+        },
+        {
+          "id": "assistant-message-exists",
+          "supported": true,
+          "source_events": [[2, 1, "assistant_message"]]
+        },
+        {
+          "id": "tests-passed",
+          "supported": false,
+          "source_events": []
+        }
+      ],
+      "summary_claims": [
+        {"id": "branch-main", "source_events": [[0, 0, "metadata"]]},
+        {"id": "user-message-exists", "source_events": [[2, 1, "assistant_message"]]},
+        {"id": "assistant-message-exists", "source_events": [[2, 1, "assistant_message"]]},
+        {"id": "tests-passed", "source_events": [[2, 1, "assistant_message"]]}
+      ],
+      "test_evidence": [
+        {
+          "id": "same-worktree",
+          "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "fingerprint": "worktree-a",
+          "current_head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "current_fingerprint": "worktree-a",
+          "expected_freshness": "current"
+        },
+        {
+          "id": "changed-worktree",
+          "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "fingerprint": "worktree-a",
+          "current_head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "current_fingerprint": "worktree-b",
+          "expected_freshness": "stale"
+        },
+        {
+          "id": "missing-git-identity",
+          "head_sha": null,
+          "fingerprint": null,
+          "current_head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "current_fingerprint": "worktree-a",
+          "expected_freshness": "unknown"
+        }
+      ]
+    }
+  ]
+}

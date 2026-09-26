@@ -16,8 +16,10 @@ for stream in (sys.stdout, sys.stderr):
 PRIVATE_PARTS = {
     "ctxzip-arsiv", "ai-arsiv", "raw", "dokum", "bolumler",
     "ciltler", "gelen",
+    "knowledge",
+    ".ctxzip-events",
 }
-PRIVATE_NAMES = {"ctxzip_ayar.json", "ctxzip.settings.json", "baglam.md", "durum.json"}
+PRIVATE_NAMES = {"ctxzip_ayar.json", "ctxzip.settings.json", "baglam.md", "context.md", "durum.json"}
 PRIVATE_SUFFIXES = (".jsonl", ".pem", ".p12", ".pfx", ".sqlite", ".sqlite3")
 SECRET_PATTERNS = {
     "API key": re.compile(

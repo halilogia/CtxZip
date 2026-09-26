@@ -1,0 +1,479 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "case_id": "duplicate-chapter-prevention",
+      "task": "fix duplicate chapter creation on rerun",
+      "files": [
+        "ctxzip_core/summarizing.py"
+      ],
+      "commits": [],
+      "relevant_ids": [
+        "old-summary-state"
+      ],
+      "relevant_sources": [
+        "synthetic-session-state"
+      ],
+      "k": 1,
+      "token_budget": 32,
+      "candidates": [
+        {
+          "id": "recent-theme-note",
+          "title": "Recent documentation styling update",
+          "body": "Update the theme stylesheet and adjust the rendered documentation palette.",
+          "kind": "chapter",
+          "ordinal": 0,
+          "metadata": {
+            "source_id": "synthetic-session-theme",
+            "freshness": "current"
+          }
+        },
+        {
+          "id": "old-summary-state",
+          "title": "Summary rerun state handling",
+          "body": "Prevent duplicate chapter creation on rerun. State updates follow completed chapter writes in summarizing.py.",
+          "kind": "chapter",
+          "ordinal": 1,
+          "metadata": {
+            "source_id": "synthetic-session-state",
+            "freshness": "current"
+          }
+        }
+      ],
+      "planner_token_budget": 51
+    },
+    {
+      "case_id": "codex-parser-truncation",
+      "task": "fix Codex parser truncation behavior",
+      "files": [
+        "ctxzip_core/parsers/codex.py"
+      ],
+      "commits": [
+        "abc1234"
+      ],
+      "symbols": [
+        "CodexSessionParser"
+      ],
+      "changed_files": [
+        "ctxzip_core/parsers/codex.py"
+      ],
+      "relevant_ids": [
+        "codex-parser-summary"
+      ],
+      "relevant_sources": [
+        "synthetic-codex-session"
+      ],
+      "k": 1,
+      "token_budget": 32,
+      "candidates": [
+        {
+          "id": "stale-codex-summary",
+          "title": "Old Codex truncation workaround",
+          "body": "Codex parser truncation used to drop tool events after a malformed input item.",
+          "kind": "chapter",
+          "ordinal": 0,
+          "metadata": {
+            "source_id": "synthetic-old-codex-session",
+            "freshness": "stale"
+          }
+        },
+        {
+          "id": "codex-parser-summary",
+          "title": "Current Codex parser behavior",
+          "body": "CodexSessionParser truncation is fixed in ctxzip_core/parsers/codex.py. Related commit abc1234.",
+          "kind": "chapter",
+          "ordinal": 1,
+          "metadata": {
+            "source_id": "synthetic-codex-session",
+            "freshness": "current"
+          }
+        }
+      ],
+      "planner_token_budget": 48
+    },
+    {
+      "case_id": "unrelated-task-export-order",
+      "task": "review export process",
+      "files": [],
+      "commits": [],
+      "relevant_ids": [
+        "recent-export"
+      ],
+      "relevant_sources": [
+        "synthetic-export-session"
+      ],
+      "k": 1,
+      "token_budget": 50,
+      "candidates": [
+        {
+          "id": "recent-export",
+          "title": "Export process review",
+          "body": "Review the local export process and verify imported file names.",
+          "kind": "chapter",
+          "ordinal": 0,
+          "metadata": {
+            "source_id": "synthetic-export-session",
+            "freshness": "current"
+          }
+        },
+        {
+          "id": "older-parser-note",
+          "title": "Parser module organization",
+          "body": "Parser modules share the normalized turn contract.",
+          "kind": "chapter",
+          "ordinal": 1,
+          "metadata": {
+            "source_id": "synthetic-parser-session",
+            "freshness": "current"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "equal-score-recency-tie",
+      "task": "review export process",
+      "relevant_ids": ["newer-unrelated-export", "older-relevant-export"],
+      "relevant_sources": [
+        "synthetic-newer-export",
+        "synthetic-older-export"
+      ],
+      "annotation": {
+        "case_type": "tie_break_regression",
+        "label_basis": "candidate content is intentionally indistinguishable; relevance applies equally",
+        "rationale": "No task-visible content supports preferring either duplicate candidate; this case measures deterministic recency tie-breaking only."
+      },
+      "k": 1,
+      "token_budget": 17,
+      "candidates": [
+        {
+          "id": "newer-unrelated-export",
+          "title": "Review export process",
+          "body": "Review export process and inspect the generated file names.",
+          "kind": "chapter",
+          "ordinal": 0,
+          "metadata": {
+            "source_id": "synthetic-newer-export",
+            "freshness": "current"
+          }
+        },
+        {
+          "id": "older-relevant-export",
+          "title": "Review export process",
+          "body": "Review export process and inspect the generated file names.",
+          "kind": "volume",
+          "ordinal": 1,
+          "metadata": {
+            "source_id": "synthetic-older-export",
+            "freshness": "current"
+          }
+        }
+      ],
+      "planner_token_budget": 35
+    },
+    {
+      "case_id": "accepted-confirmation-policy",
+      "task": "Find the accepted decision requiring an automatic LLM request preview and confirmation by default.",
+      "files": [],
+      "commits": [],
+      "relevant_ids": ["confirmed-send-gate"],
+      "relevant_sources": ["synthetic-privacy-decision"],
+      "annotation": {
+        "case_type": "independent_synthetic_label",
+        "review_method": "two independent blind relevance readers agreed",
+        "label_basis": "task and candidate text",
+        "rationale": "The positive describes preview plus default confirmation; the distractor is a proposal to bypass that accepted policy."
+      },
+      "k": 1,
+      "token_budget": 64,
+      "candidates": [
+        {
+          "id": "confirmed-send-gate",
+          "title": "Confirmed LLM sending safeguard",
+          "body": "Decision: show the full prompt and target before each automatic LLM request; require confirmation unless the user explicitly enables approved sending.",
+          "kind": "chapter",
+          "ordinal": 0,
+          "metadata": {"source_id": "synthetic-privacy-decision", "freshness": "current"}
+        },
+        {
+          "id": "bypass-proposal",
+          "title": "Unattended sending proposal",
+          "body": "Proposal: skip confirmation in unattended runs to reduce interruptions.",
+          "kind": "chapter",
+          "ordinal": 1,
+          "metadata": {"source_id": "synthetic-provider-note", "freshness": "current"}
+        }
+      ]
+    },
+    {
+      "case_id": "test-fingerprint-currentness",
+      "task": "Find evidence that test results count as current only when their worktree fingerprint matches the supplied snapshot.",
+      "files": [],
+      "commits": [],
+      "relevant_ids": ["fingerprint-currentness-rule"],
+      "relevant_sources": ["synthetic-test-policy"],
+      "annotation": {
+        "case_type": "independent_synthetic_label",
+        "review_method": "two independent blind relevance readers agreed",
+        "label_basis": "task and candidate text",
+        "rationale": "The positive states the exact fingerprint condition; the related distractor only names other captured test metadata."
+      },
+      "k": 1,
+      "token_budget": 64,
+      "candidates": [
+        {
+          "id": "fingerprint-currentness-rule",
+          "title": "Test evidence freshness rule",
+          "body": "Test evidence is current only when the stored worktree fingerprint matches the supplied current snapshot; otherwise it is historical.",
+          "kind": "chapter",
+          "ordinal": 0,
+          "metadata": {"source_id": "synthetic-test-policy", "freshness": "current"}
+        },
+        {
+          "id": "test-metadata-capture",
+          "title": "Test run metadata",
+          "body": "The wrapper records the exit code and branch for each test run.",
+          "kind": "chapter",
+          "ordinal": 1,
+          "metadata": {"source_id": "synthetic-test-wrapper", "freshness": "current"}
+        }
+      ]
+    },
+    {
+      "case_id": "unanswerable-with-distractors",
+      "task": "Find a confirmed decision about branch-specific memory validity.",
+      "files": [],
+      "commits": [],
+      "relevant_ids": [],
+      "relevant_sources": [],
+      "annotation": {
+        "case_type": "unanswerable_query",
+        "label_basis": "none of the candidates state a confirmed branch-scoped validity decision",
+        "rationale": "Candidates discuss branch metadata and task status but do not answer whether memory validity is scoped by branch."
+      },
+      "k": 2,
+      "token_budget": 64,
+      "candidates": [
+        {
+          "id": "branch-test-metadata",
+          "title": "Test branch metadata",
+          "body": "A test observation records the branch and commit used for the run.",
+          "kind": "chapter",
+          "ordinal": 0,
+          "metadata": {"source_id": "synthetic-test-branch", "freshness": "current"}
+        },
+        {
+          "id": "open-branch-task",
+          "title": "Branch implementation task",
+          "body": "An open task proposes testing a parser change on a separate branch.",
+          "kind": "volume",
+          "ordinal": 1,
+          "metadata": {"source_id": "synthetic-open-task", "freshness": "current"}
+        }
+      ]
+    },
+    {
+      "case_id": "empty-result",
+      "task": "find an archived parser decision",
+      "relevant_ids": [],
+      "relevant_sources": [],
+      "k": 3,
+      "token_budget": 0,
+      "candidates": []
+    },
+    {
+      "case_id": "changed-source-freshness",
+      "task": "repair Codex truncation parser behavior",
+      "files": [
+        "ctxzip_core/parser_codex.py"
+      ],
+      "changed_files": [
+        "ctxzip_core/parser_codex.py"
+      ],
+      "relevant_ids": [
+        "current-source-parser"
+      ],
+      "relevant_sources": [
+        "synthetic-current-parser"
+      ],
+      "k": 1,
+      "token_budget": 32,
+      "candidates": [
+        {
+          "id": "outdated-source-parser",
+          "title": "Codex truncation parser behavior",
+          "body": "The parser drops messages following a truncated record.",
+          "kind": "chapter",
+          "ordinal": 0,
+          "metadata": {
+            "source_id": "synthetic-old-parser",
+            "freshness": "stale"
+          }
+        },
+        {
+          "id": "current-source-parser",
+          "title": "Codex truncation parser behavior",
+          "body": "The current parser handles truncated Codex records safely.",
+          "kind": "chapter",
+          "ordinal": 1,
+          "metadata": {
+            "source_id": "synthetic-current-parser",
+            "freshness": "current"
+          }
+        }
+      ],
+      "planner_token_budget": 38
+    },
+    {
+      "case_id": "multi-source-coverage",
+      "task": "parser state reconciliation",
+      "files": [
+        "ctxzip_core/parser_codex.py",
+        "ctxzip_core/summary_store.py"
+      ],
+      "relevant_ids": [
+        "parser-source",
+        "state-source"
+      ],
+      "relevant_sources": [
+        "synthetic-parser",
+        "synthetic-state"
+      ],
+      "k": 2,
+      "token_budget": 128,
+      "candidates": [
+        {
+          "id": "recent-docs",
+          "title": "Recent documentation refresh",
+          "body": "A recent docs update describes project setup and commands.",
+          "kind": "chapter",
+          "ordinal": 0,
+          "metadata": {
+            "source_id": "synthetic-docs",
+            "freshness": "current"
+          }
+        },
+        {
+          "id": "parser-source",
+          "title": "Codex parser source handling",
+          "body": "The parser source handles truncated Codex records.",
+          "kind": "chapter",
+          "ordinal": 1,
+          "metadata": {
+            "source_id": "synthetic-parser",
+            "files": "ctxzip_core/parser_codex.py",
+            "freshness": "current"
+          }
+        },
+        {
+          "id": "state-source",
+          "title": "Summary state reconciliation",
+          "body": "Summary state reconciliation prevents duplicate chapter creation.",
+          "kind": "volume",
+          "ordinal": 2,
+          "metadata": {
+            "source_id": "synthetic-state",
+            "files": "ctxzip_core/summary_store.py",
+            "freshness": "current"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "partial-overlap-coverage-impact",
+      "task": "preserve unique parser timeout source turns",
+      "files": [
+        "src/parser.py"
+      ],
+      "relevant_ids": [
+        "current-parser-window",
+        "older-parser-window"
+      ],
+      "relevant_sources": [
+        "synthetic-overlap-session"
+      ],
+      "k": 2,
+      "token_budget": 256,
+      "candidates": [
+        {
+          "id": "current-parser-window",
+          "title": "Parser timeout handling",
+          "body": "Current parser timeout behavior and source interval overview.",
+          "kind": "chapter",
+          "ordinal": 0,
+          "metadata": {
+            "source_id": "synthetic-overlap-session",
+            "files": "src/parser.py",
+            "freshness": "current"
+          },
+          "source_ranges": [
+            {
+              "session_id": "synthetic-overlap-session",
+              "first_turn": 1,
+              "last_turn": 6
+            }
+          ]
+        },
+        {
+          "id": "older-parser-window",
+          "title": "Parser timeout follow-up",
+          "body": "The older parser timeout follow-up covers later unique source turns.",
+          "kind": "chapter",
+          "ordinal": 1,
+          "metadata": {
+            "source_id": "synthetic-overlap-session",
+            "freshness": "current"
+          },
+          "source_ranges": [
+            {
+              "session_id": "SYNTHETIC-OVERLAP-SESSION",
+              "first_turn": 5,
+              "last_turn": 10
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "incomplete-provenance-retention",
+      "task": "preserve unique parser timeout source turns",
+      "files": ["src/parser.py"],
+      "relevant_ids": ["current-parser-window", "legacy-unattributed-summary"],
+      "relevant_sources": ["synthetic-overlap-session", "synthetic-legacy-source"],
+      "annotation": {
+        "case_type": "provenance_safety_regression",
+        "label_basis": "the legacy summary has no verifiable turn range and may contain unique information",
+        "rationale": "The test verifies conservative retention under missing provenance; it does not infer that the legacy text is actually unique."
+      },
+      "k": 3,
+      "token_budget": 256,
+      "candidates": [
+        {
+          "id": "current-parser-window",
+          "title": "Parser timeout handling",
+          "body": "Current parser timeout behavior and source interval overview.",
+          "kind": "chapter",
+          "ordinal": 0,
+          "metadata": {"source_id": "synthetic-overlap-session", "files": "src/parser.py", "freshness": "current"},
+          "source_ranges": [{"session_id": "synthetic-overlap-session", "first_turn": 1, "last_turn": 6}]
+        },
+        {
+          "id": "redundant-known-range",
+          "title": "Parser timeout details",
+          "body": "A redundant parser timeout summary with fully covered source turns.",
+          "kind": "chapter",
+          "ordinal": 1,
+          "metadata": {"source_id": "synthetic-overlap-session", "freshness": "current"},
+          "source_ranges": [{"session_id": "synthetic-overlap-session", "first_turn": 2, "last_turn": 4}]
+        },
+        {
+          "id": "legacy-unattributed-summary",
+          "title": "Legacy parser timeout follow-up",
+          "body": "This legacy parser timeout summary has no source range metadata and may preserve unique details.",
+          "kind": "chapter",
+          "ordinal": 2,
+          "metadata": {"source_id": "synthetic-legacy-source", "freshness": "unknown"}
+        }
+      ]
+    }
+  ]
+}

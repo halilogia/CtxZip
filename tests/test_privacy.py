@@ -18,8 +18,10 @@ SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 
 class PrivacyTests(unittest.TestCase):
     def test_private_paths_are_blocked(self):
-        for path in ("ctxzip_ayar.json", "ctxzip.settings.json", "BAGLAM.md", "raw/oturum.txt",
-                     "docs/gelen/sohbet.md", "log.jsonl", ".env.local"):
+        for path in ("ctxzip_ayar.json", "ctxzip.settings.json", "BAGLAM.md", "CONTEXT.md", "raw/oturum.txt",
+                     "docs/gelen/sohbet.md", "knowledge/decisions.json", ".ctxzip-events/codex/abc.json",
+                     ".ctxzip-events/versions/codex/session/source-version.json",
+                     "log.jsonl", ".env.local"):
             with self.subTest(path=path):
                 self.assertIsNotNone(path_issue(path))
         self.assertIsNone(path_issue("README.md"))
@@ -32,6 +34,12 @@ class PrivacyTests(unittest.TestCase):
         self.assertIn("API key", issues)
         self.assertIn("personal home path", issues)
         self.assertNotIn(fake, repr(issues))
+
+    def test_sanitized_parser_fixtures_contain_no_common_secret_or_home_path_pattern(self):
+        fixtures = Path(__file__).parent / "fixtures"
+        for path in fixtures.rglob("*.fixture"):
+            with self.subTest(path=path.name):
+                self.assertEqual(content_issues(path.read_bytes()), [])
 
     def test_secret_redaction_uses_selected_language(self):
         fake = "sk-" + "C" * 32

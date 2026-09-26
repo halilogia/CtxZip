@@ -1,0 +1,7 @@
+{"type":"session_meta","timestamp":"2026-01-01T00:00:00Z","ordinal":1,"payload":{"cwd":"/workspace/example","git":{"branch":"main"}}}
+{"type":"response_item","timestamp":"2026-01-01T00:00:00Z","ordinal":1,"payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Sanitized example message."}]}}
+{"type":"response_item","timestamp":"2026-01-01T00:00:00Z","ordinal":2,"payload":{"type":"function_call","name":"example_tool","arguments":"example arguments"}}
+{"type":"response_item","timestamp":"2026-01-01T00:00:00Z","ordinal":3,"payload":{"type":"custom_tool_call","name":"example_tool_id","input":"Sanitized tool output."}}
+{"type":"response_item","timestamp":"2026-01-01T00:00:00Z","ordinal":4,"payload":{"type":"local_shell_call","action":"Sanitized tool result."}}
+{"type":"response_item","timestamp":"2026-01-01T00:00:00Z","ordinal":5,"payload":{"type":"reasoning","summary":[{"text":"Sanitized reasoning sample."}]}}
+{"type":"response_item","timestamp":"2026-01-01T00:00:00Z","ordinal":6,"payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Sanitized example message."}]}}

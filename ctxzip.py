@@ -11,10 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
-import re
 import sys
-import time
 from datetime import datetime
 from pathlib import Path
 
@@ -22,10 +19,16 @@ from ctxzip_core.text import (
     estimate_tokens, text_hash, format_timestamp, SISTEM_ETIKETI as SYSTEM_LABEL, clean_text, truncate_text,
 )
 from ctxzip_core.parsers import (
-    iter_jsonl_rows, claude_working_directory, codex_working_directory, is_codex_file, Turn, tool_summary, parse_claude_turns, parse_codex_turns, parse_antigravity_turns, parse_manual_turns, PARSERS, read_session,
+    iter_jsonl_rows, claude_working_directory, codex_working_directory, is_codex_file, Turn, tool_summary, parse_claude_turns, parse_codex_turns, parse_antigravity_turns, parse_manual_turns, PARSERS, PARSER_VERSIONS, read_session, read_session_events, event_session_id,
 )
-from ctxzip_core.sessions import (
-    short_id, list_sessions,
+from ctxzip_core.sessions import list_sessions
+from ctxzip_core.transcripts import generate_transcripts
+from ctxzip_core.context_generation import (
+    build_context_pack, _event_provenance, _knowledge_context_items,
+    _repository_context_item, _session_source_hash, _recent_context_items, _stale_chapter_files,
+)
+from ctxzip_core.source_collection import (
+    collect_sources, discover_sources, expand_path, file_hash, project_name, safe_name,
 )
 from ctxzip_core.summary_store import (
     BURAYA as SUMMARY_PLACEHOLDER, load_summary_state, save_summary_state, split_summary_metadata, write_summary_file, read_summary_body, is_manually_edited,
@@ -39,7 +42,22 @@ from ctxzip_core.prompts import (
 from ctxzip_core.summarizing import (
     fill_pending_summaries, fold_volume, summarize_project,
 )
+from ctxzip_core.summary_validity import SummaryValidityError, record_summary_validity
 from ctxzip_core.git_safety import ensure_git_safe_copy
+from ctxzip_core.retrieval import SummaryCandidate, deduplicate_overlapping_summaries, rank_summaries
+from ctxzip_core.summary_ranges import source_ranges_for_summary
+from ctxzip_core.git_state import capture_git_snapshot
+from ctxzip_core.context_planner import ContextItem, balanced_allocation, plan_context
+from ctxzip_core.recent_context import SessionTurns, select_uncovered_recent_turns
+from ctxzip_core.source_freshness import chapter_source_hash
+from ctxzip_core.context_pack import FORMAT_ID, SCHEMA_VERSION, render_metadata_block
+from ctxzip_core.diagnostics import run_diagnostics
+from ctxzip_core.test_runner import run_and_record_test
+from ctxzip_core.knowledge_capture import capture_knowledge, SUPPORTED_SOURCES
+from ctxzip_core.knowledge import (
+    Freshness, KnowledgeStatus, KnowledgeStore, KnowledgeStoreError, QuestionStatus, TaskStatus,
+    knowledge_freshness, test_freshness,
+)
 from ctxzip_core.llm import call_llm
 from ctxzip_core.privacy import redact_secrets
 from ctxzip_core.i18n import LocalizationError, preferred_language, translate, validate_catalogs
@@ -73,19 +91,13 @@ DEFAULT_SETTINGS = {
 
 # ---------------------------------------------------------------- helpers
 
-def expand_path(path_item: str) -> Path | None:
-    if "$CODEX_HOME" in path_item:
-        home = os.environ.get("CODEX_HOME")
-        if not home:
-            return None
-        path_item = path_item.replace("$CODEX_HOME", home)
-    return Path(os.path.expandvars(os.path.expanduser(path_item)))
-
 
 def load_settings(path: Path) -> dict:
     settings = json.loads(json.dumps(DEFAULT_SETTINGS))
     if path.exists():
         user_settings = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(user_settings, dict):
+            raise ValueError("Settings file must contain a JSON object")
         for source_root, value in user_settings.items():
             if isinstance(value, dict) and isinstance(settings.get(source_root), dict):
                 settings[source_root].update(value)
@@ -103,127 +115,25 @@ def default_settings_path(application_dir: Path) -> Path:
     return settings_path
 
 
-def file_hash(path_item: Path) -> str:
-    file_digest = hashlib.sha256()
-    with path_item.open("rb") as source_file:
-        for data_block in iter(lambda: source_file.read(1 << 20), b""):
-            file_digest.update(data_block)
-    return file_digest.hexdigest()
-
-
-def safe_name(value: str) -> str:
-    value = re.sub(r"[^\w.\-]+", "-", value, flags=re.UNICODE).strip("-")
-    return value or "adsiz"
-
-
-# ---------------------------------------------------------------- source discovery
-
-
-def project_name(working_directory: str | None, settings: dict) -> str | None:
-    if not working_directory:
-        return None
-    name = re.split(r"[\\/]", working_directory.rstrip("\\/"))[-1] or working_directory
-    if name in settings["haric_projeler"]:
-        return None
-    return safe_name(settings["proje_takma_adlari"].get(name, name))
-
-
-def discover_sources(settings: dict):
-    """Yield (tool, project, session_id, source_path) tuples."""
-    for archive_root in settings["kaynaklar"].get("claude_code", []):
-        source_root = expand_path(archive_root)
-        if not source_root or not source_root.exists():
-            continue
-        for path_item in sorted(source_root.glob("*/*.jsonl")):
-            project = project_name(claude_working_directory(path_item), settings)
-            if project:
-                yield "claude-code", project, path_item.stem, path_item
-    for archive_root in settings["kaynaklar"].get("codex", []):
-        source_root = expand_path(archive_root)
-        if not source_root or not source_root.exists():
-            continue
-        for path_item in sorted(source_root.rglob("*.jsonl")):
-            project = project_name(codex_working_directory(path_item), settings)
-            if project:
-                yield "codex", project, path_item.stem, path_item
-    for archive_root in settings["kaynaklar"].get("antigravity_brain", []):
-        source_root = expand_path(archive_root)
-        if not source_root or not source_root.exists():
-            continue
-        # Antigravity "brain" directory: per-conversation Markdown artifacts (task, plan, walkthrough).
-        # Project metadata is not guaranteed in files, so use "antigravity"; a configured alias can remap it.
-        for entry in sorted(x for x in source_root.iterdir() if x.is_dir()):
-            if any(entry.glob("*.md")):
-                yield "antigravity", safe_name(settings["proje_takma_adlari"].get(entry.name, "antigravity")), entry.name, entry
-
 # ---------------------------------------------------------------- 1) collect
 
 def collect(settings: dict, archive_root: Path) -> None:
-    new_count = updated_count = unchanged_count = 0
-    for tool, project, session_id, source_path in discover_sources(settings):
-        target_dir = archive_root / project / "raw" / tool
-        target_dir.mkdir(parents=True, exist_ok=True)
-        if source_path.is_dir():
-            target = target_dir / session_id
-            changed = False
-            for markdown_file in source_path.rglob("*.md"):
-                copied_path = target / markdown_file.relative_to(source_path)
-                if not copied_path.exists() or copied_path.read_bytes() != markdown_file.read_bytes():
-                    copied_path.parent.mkdir(parents=True, exist_ok=True)
-                    atomic_copy2(markdown_file, copied_path)
-                    changed = True
-            is_new = not (target_dir / (session_id + ".kaynak")).exists()
-            atomic_write_text(target_dir / (session_id + ".kaynak"), str(source_path))
-        else:
-            target = target_dir / (session_id + ".jsonl")
-            is_new = not target.exists()
-            changed = is_new or target.stat().st_size != source_path.stat().st_size or file_hash(target) != file_hash(source_path)
-            if changed:
-                if not is_new and target.stat().st_size > source_path.stat().st_size:
-                    # If the source shrank because the tool rewrote it, preserve the previous copy before replacement.
-                    atomic_copy2(target, target.with_suffix(f".{int(time.time())}.onceki.jsonl"))
-                atomic_copy2(source_path, target)
-        if is_new:
-            new_count += 1
-        elif changed:
-            updated_count += 1
-        else:
-            unchanged_count += 1
-    print(translate(settings.get("language"), "collect_result", new=new_count, updated=updated_count, same=unchanged_count, path=archive_root))
+    result = collect_sources(settings, archive_root)
+    print(translate(
+        settings.get("language"), "collect_result",
+        new=result.new, updated=result.updated, same=result.unchanged, path=archive_root,
+    ))
 
 # ---------------------------------------------------------------- 2) transcripts
 
 
 def write_transcripts(settings: dict, archive_root: Path, project: str | None) -> None:
     for project_dir in project_directories(archive_root, project, settings.get("language", "tr")):
-        target = project_dir / "dokum"
-        target.mkdir(exist_ok=True)
-        transcript_count = 0
-        for tool, session_id, path in list_sessions(project_dir):
-            turns, session_info = read_session(tool, path, settings, settings.get("language", "tr"))
-            if not turns:
-                continue
-            start_time = format_timestamp(session_info["baslangic"])
-            language = settings.get("language", "tr")
-            start_label = translate(language, "transcript_start")
-            end_label = translate(language, "transcript_end")
-            branch_label = translate(language, "transcript_branch")
-            turn_label = translate(language, "transcript_turns")
-            raw_label = translate(language, "transcript_raw_source")
-            session_label = translate(language, "transcript_session")
-            date_label = start_time[:10] or translate(language, "transcript_undated")
-            name = f"{date_label}_{tool}_{short_id(session_id)}.md"
-            transcript_lines = [f"# {project_dir.name} — {tool} {session_label} {short_id(session_id)}",
-                     f"{start_label}: {start_time} · {end_label}: {format_timestamp(session_info['bitis'])} · {branch_label}: {session_info['dal'] or '-'} · {turn_label}: {len(turns)}",
-                     f"{raw_label}: `{path.relative_to(project_dir)}`", ""]
-            for turn in turns:
-                transcript_lines.append(f"## [T{turn.number}] {turn.timestamp}\n\n{turn.text()}\n")
-            atomic_write_text(
-                target / name,
-                redact_secrets("\n".join(transcript_lines), settings.get("language", "tr")),
-            )
-            transcript_count += 1
-        print(translate(settings.get("language"), "transcript_result", project=project_dir.name, count=transcript_count, path=target))
+        result = generate_transcripts(settings, project_dir)
+        print(translate(
+            settings.get("language"), "transcript_result",
+            project=result.project, count=result.count, path=result.output_dir,
+        ))
 
 
 def project_directories(archive_root: Path, project: str | None, language: str = "tr"):
@@ -245,44 +155,31 @@ def summarize(settings: dict, archive_root: Path, project: str | None, manual: b
 
 # ---------------------------------------------------------------- 4) context pack
 
-def build_context(settings: dict, archive_root: Path, project: str, budget: int, copy_target: str | None) -> None:
+# ---------------------------------------------------------------- 4) context pack
+
+def build_context(
+    settings: dict,
+    archive_root: Path,
+    project: str,
+    budget: int,
+    copy_target: str | None,
+    *,
+    task: str = "",
+    files: tuple[str, ...] = (),
+    commits: tuple[str, ...] = (),
+    symbols: tuple[str, ...] = (),
+    changed_files: tuple[str, ...] = (),
+    git_snapshot=None,
+    explain: bool = False,
+    budget_profile: str = "priority",
+) -> None:
     project_dir = project_directories(archive_root, project, settings.get("language", "tr"))[0]
-    summary_state = load_summary_state(project_dir)
-    selected_summaries: list[tuple[str, str]] = []
-    remaining_tokens = budget
-    # Newest first: chapters not folded into volumes, followed by volumes.
-    candidates = [("bolumler", chapter_record["dosya"]) for chapter_record in reversed(summary_state["bolumler"]) if chapter_record["cilt"] is None]
-    candidates += [("ciltler", c["dosya"]) for c in reversed(summary_state["ciltler"])]
-    omitted_count = 0
-    for folder, name in candidates:
-        path = project_dir / folder / name
-        _summary_metadata, body = read_summary_body(path)
-        if SUMMARY_PLACEHOLDER in body:
-            continue
-        token_count = estimate_tokens(body)
-        if token_count > remaining_tokens:
-            omitted_count += 1
-            continue
-        title = path.read_text(encoding="utf-8").split("\n# ", 1)[-1].split("\n", 1)[0]
-        selected_summaries.append((title, body))
-        remaining_tokens -= token_count
-    selected_summaries.reverse()  # Restore chronological order.
-    language = settings.get("language", "tr")
-    output_lines = [f"# {project_dir.name} — {translate(language, 'context_title')}",
-             f"_{translate(language, 'generated')}: {datetime.now().strftime('%Y-%m-%d %H:%M')} · {translate(language, 'summary_count', count=len(selected_summaries))} · ~{translate(language, 'token_count', count=budget - remaining_tokens)}"
-             + (f" · {omitted_count} {translate(language, 'budget_omitted')}" if omitted_count else "") + "_", "",
-             "> " + translate(language, "context_notice"), ""]
-    for title, body in selected_summaries:
-        output_lines.append(f"---\n\n# {title}\n\n{body}\n")
-    target = project_dir / "BAGLAM.md"
-    atomic_write_text(target, "\n".join(output_lines))
-    print(translate(language, "context_result", path=target, count=len(selected_summaries), tokens=budget - remaining_tokens))
-    if copy_target:
-        source_root = Path(os.path.expanduser(copy_target))
-        source_root = source_root / "BAGLAM.md" if source_root.is_dir() else source_root
-        ensure_git_safe_copy(source_root, language)
-        atomic_copy2(target, source_root)
-        print(f"[{translate(language, 'copied')}] -> {source_root}")
+    build_context_pack(
+        settings, project_dir, budget, copy_target, task=task, files=files,
+        commits=commits, symbols=symbols, changed_files=changed_files,
+        git_snapshot=git_snapshot, explain=explain, budget_profile=budget_profile,
+    )
+
 
 # ---------------------------------------------------------------- status
 
@@ -304,22 +201,54 @@ def show_status(archive_root: Path, language: str = "tr") -> None:
 def main() -> None:
     application_dir = Path(__file__).parent
     settings_path = default_settings_path(application_dir)
+    doctor_requested = False
+    argument_index = 1
+    while argument_index < len(sys.argv):
+        option = sys.argv[argument_index]
+        if option in ("--ayar", "--settings", "--language"):
+            argument_index += 2
+            continue
+        if option.startswith("-"):
+            argument_index += 1
+            continue
+        doctor_requested = option == "doctor"
+        break
     settings_option = next((option for option in ("--ayar", "--settings") if option in sys.argv), None)
     if settings_option and sys.argv.index(settings_option) + 1 < len(sys.argv):
         settings_path = Path(sys.argv[sys.argv.index(settings_option) + 1])
+    settings_error = False
     try:
-        configured_language = load_settings(settings_path).get("language", "tr")
-    except (OSError, json.JSONDecodeError) as error:
-        raise SystemExit(f"Invalid settings file: {error}") from None
+        bootstrap_settings = load_settings(settings_path)
+    except (OSError, ValueError, UnicodeError) as error:
+        if not doctor_requested:
+            raise SystemExit(f"Invalid settings file: {error}") from None
+        bootstrap_settings = None
+        settings_error = True
+    configured_language = (bootstrap_settings or DEFAULT_SETTINGS).get("language", "tr")
+    if not isinstance(configured_language, str):
+        configured_language = "tr"
     explicit_language = None
     if "--language" in sys.argv and sys.argv.index("--language") + 1 < len(sys.argv):
         explicit_language = sys.argv[sys.argv.index("--language") + 1]
     try:
         language = preferred_language(configured_language, explicit_language)
         validate_catalogs()
-    except LocalizationError as error:
-        raise SystemExit(str(error)) from None
-    translate_message = lambda key, **values: translate(language, key, **values)
+    except (LocalizationError, OSError, ValueError) as error:
+        if not doctor_requested:
+            raise SystemExit(str(error)) from None
+        try:
+            language = preferred_language("en", explicit_language)
+        except LocalizationError:
+            language = "en"
+
+    def translate_message(key: str, **values: object) -> str:
+        try:
+            return translate(language, key, **values)
+        except (LocalizationError, OSError, ValueError):
+            if doctor_requested:
+                return key.replace("_", " ")
+            raise
+
     argument_parser = argparse.ArgumentParser(description=translate_message("app_description"))
     argument_parser.add_argument("--ayar", "--settings", dest="settings", default=str(settings_path), help=translate_message("settings_help"))
     argument_parser.add_argument("--language", choices=("tr", "en"), help=translate_message("language_help"))
@@ -332,18 +261,97 @@ def main() -> None:
     summary_parser.add_argument("--elle", "--manual", dest="manual", action="store_true", help=translate_message("manual_help"))
     summary_parser.add_argument("--onayli-gonder", "--approved-send", dest="onayli_gonder", action="store_true",
                    help=translate_message("approved_help"))
+    validity_parser = subparsers.add_parser(
+        "summary-validity", aliases=["ozet-gecerlilik"],
+        help=translate_message("summary_validity_help"),
+    )
+    validity_parser.add_argument("--project", required=True, help=translate_message("summary_validity_project_help"))
+    validity_parser.add_argument("summary_file", help=translate_message("summary_validity_file_help"))
+    validity_parser.add_argument(
+        "--validity-path", action="append", default=[],
+        help=translate_message("summary_validity_path_help"),
+    )
     context_parser = subparsers.add_parser("baglam", aliases=["context"], help=translate_message("context_help"))
     context_parser.add_argument("project")
     context_parser.add_argument("--token", "--tokens", dest="tokens", type=int, default=12000)
+    context_parser.add_argument(
+        "--budget-profile", choices=("priority", "balanced"), default="priority",
+        help=translate_message("context_budget_profile_help"),
+    )
     context_parser.add_argument("--kopyala", "--copy", dest="copy_target", help=translate_message("copy_help"))
+    context_parser.add_argument("--task", help=translate_message("context_task_help"))
+    context_parser.add_argument("--file", dest="files", action="append", default=[], help=translate_message("context_file_help"))
+    context_parser.add_argument("--commit", dest="commits", action="append", default=[], help=translate_message("context_commit_help"))
+    context_parser.add_argument("--symbol", dest="symbols", action="append", default=[], help=translate_message("context_symbol_help"))
+    context_parser.add_argument("--from-git-diff", action="store_true", help=translate_message("context_git_diff_help"))
+    context_parser.add_argument("--explain", action="store_true", help=translate_message("context_explain_help"))
     all_command_parser = subparsers.add_parser("hepsi", aliases=["all"], help=translate_message("all_help"))
     all_command_parser.add_argument("--elle", "--manual", dest="manual", action="store_true", help=translate_message("manual_help"))
     all_command_parser.add_argument("--onayli-gonder", "--approved-send", dest="onayli_gonder", action="store_true",
                    help=translate_message("approved_help"))
     subparsers.add_parser("durum", aliases=["status"], help=translate_message("status_help"))
+    subparsers.add_parser("doctor", help=translate_message("doctor_help"))
+    knowledge_parser = subparsers.add_parser(
+        "knowledge", aliases=["hafiza"], help=translate_message("knowledge_help")
+    )
+    knowledge_commands = knowledge_parser.add_subparsers(dest="knowledge_command", required=True)
+    knowledge_add_parser = knowledge_commands.add_parser("add", help=translate_message("knowledge_add_help"))
+    knowledge_add_parser.add_argument("--project", required=True, help=translate_message("knowledge_project_help"))
+    knowledge_add_parser.add_argument(
+        "--kind", required=True, choices=("decision", "constraint", "task", "question", "file"),
+        help=translate_message("knowledge_kind_help"),
+    )
+    knowledge_add_parser.add_argument(
+        "--source", required=True, choices=SUPPORTED_SOURCES,
+        help=translate_message("knowledge_source_help"),
+    )
+    knowledge_add_parser.add_argument("--session", required=True, help=translate_message("knowledge_session_help"))
+    knowledge_add_parser.add_argument("--turn", required=True, type=int, help=translate_message("knowledge_turn_help"))
+    knowledge_add_parser.add_argument("--text", help=translate_message("knowledge_text_help"))
+    knowledge_add_parser.add_argument(
+        "--status", choices=("observed", "inferred", "confirmed"),
+        help=translate_message("knowledge_status_help"),
+    )
+    knowledge_add_parser.add_argument("--scope", help=translate_message("knowledge_scope_help"))
+    knowledge_add_parser.add_argument("--path", help=translate_message("knowledge_path_help"))
+    knowledge_add_parser.add_argument("--symbol", help=translate_message("knowledge_symbol_help"))
+    knowledge_add_parser.add_argument(
+        "--task-status", choices=("open", "in_progress"),
+        help=translate_message("knowledge_task_status_help"),
+    )
+    knowledge_add_parser.add_argument(
+        "--validity-path", action="append", default=[],
+        help=translate_message("knowledge_validity_path_help"),
+    )
+    knowledge_add_parser.add_argument("--validity-head", help=translate_message("knowledge_validity_head_help"))
+    knowledge_add_parser.add_argument("--supersedes", help=translate_message("knowledge_supersedes_help"))
+    test_run_parser = subparsers.add_parser("test-run", aliases=["record-test"], help=translate_message("test_run_help"))
+    test_run_parser.add_argument("--project", required=True, help=translate_message("test_project_help"))
+    test_run_parser.add_argument("--scope", action="append", default=[], help=translate_message("test_scope_help"))
+    test_run_parser.add_argument("test_argv", nargs=argparse.REMAINDER)
     arguments = argument_parser.parse_args()
 
-    settings = load_settings(Path(arguments.settings))
+    if arguments.command == "doctor":
+        doctor_settings = bootstrap_settings or DEFAULT_SETTINGS
+        checks = run_diagnostics(
+            doctor_settings,
+            repository_dir=Path.cwd(),
+            settings_valid=not settings_error,
+        )
+        print(translate_message("doctor_heading"))
+        for check in checks:
+            status_label = translate_message(f"doctor_status_{check.status}")
+            check_label = translate_message(check.check_key)
+            values = dict(check.values)
+            if "key_present" in values:
+                values["key_present"] = translate_message(
+                    "doctor_yes" if values["key_present"] else "doctor_no"
+                )
+            detail = translate_message(check.detail_key, **values)
+            print(f"[{status_label}] {check_label}: {detail}")
+        raise SystemExit(1 if any(check.status == "error" for check in checks) else 0)
+
+    settings = bootstrap_settings or load_settings(Path(arguments.settings))
     settings["language"] = preferred_language(settings.get("language"), arguments.language)
     settings["_onayli_gonder"] = getattr(arguments, "onayli_gonder", False)
     archive_root = expand_path(settings["arsiv_klasoru"])
@@ -354,14 +362,88 @@ def main() -> None:
         write_transcripts(settings, archive_root, arguments.project)
     elif arguments.command in ("ozetle", "summarize"):
         summarize(settings, archive_root, arguments.project, arguments.manual)
+    elif arguments.command in ("summary-validity", "ozet-gecerlilik"):
+        project_dir = project_directories(archive_root, arguments.project, settings["language"])[0]
+        try:
+            summary_name, paths, head_sha = record_summary_validity(
+                project_dir, arguments.summary_file, tuple(arguments.validity_path), Path.cwd(),
+            )
+        except SummaryValidityError as error:
+            raise SystemExit(translate_message(f"summary_validity_{error.code}")) from None
+        print(translate_message(
+            "summary_validity_recorded", file=summary_name, count=len(paths), head=head_sha[:12],
+        ))
     elif arguments.command in ("baglam", "context"):
-        build_context(settings, archive_root, arguments.project, arguments.tokens, arguments.copy_target)
+        changed_files = ()
+        git_snapshot = None
+        if arguments.from_git_diff:
+            git_snapshot = capture_git_snapshot(Path.cwd())
+            if not git_snapshot.is_repository:
+                raise SystemExit(translate(settings["language"], "context_git_required"))
+            changed_files = git_snapshot.changed_files
+        build_context(settings, archive_root, arguments.project, arguments.tokens, arguments.copy_target,
+                      task=arguments.task or "", files=tuple(arguments.files), commits=tuple(arguments.commits),
+                      symbols=tuple(arguments.symbols), changed_files=changed_files,
+                      git_snapshot=git_snapshot,
+                      explain=arguments.explain, budget_profile=arguments.budget_profile)
     elif arguments.command in ("hepsi", "all"):
         collect(settings, archive_root)
         write_transcripts(settings, archive_root, None)
         summarize(settings, archive_root, None, arguments.manual)
     elif arguments.command in ("durum", "status"):
         show_status(archive_root, settings["language"])
+    elif arguments.command in ("test-run", "record-test"):
+        command = arguments.test_argv[1:] if arguments.test_argv[:1] == ["--"] else arguments.test_argv
+        if not command:
+            raise SystemExit(translate(settings["language"], "test_command_required"))
+        project_dir = project_directories(archive_root, arguments.project, settings["language"])[0]
+        evidence = run_and_record_test(
+            command,
+            store=KnowledgeStore(project_dir / "knowledge"),
+            repository_dir=Path.cwd(),
+            scope=arguments.scope,
+        )
+        exit_display = (
+            str(evidence.exit_code)
+            if evidence.exit_code is not None
+            else translate(settings["language"], "test_exit_unavailable")
+        )
+        head_display = evidence.head_sha or translate(settings["language"], "test_head_unknown")
+        result_display = translate(settings["language"], f"test_result_{evidence.result.value}")
+        print(translate(
+            settings["language"], "test_run_recorded",
+            result=result_display, exit_code=exit_display, head=head_display,
+        ))
+        raise SystemExit(evidence.exit_code if evidence.exit_code is not None else 127)
+    elif arguments.command in ("knowledge", "hafiza"):
+        project_dir = project_directories(archive_root, arguments.project, settings["language"])[0]
+        try:
+            record = capture_knowledge(
+                project_dir,
+                kind=arguments.kind,
+                source_id=arguments.source,
+                session_id=arguments.session,
+                turn_number=arguments.turn,
+                text=arguments.text,
+                status=arguments.status,
+                scope=arguments.scope,
+                path=arguments.path,
+                symbol=arguments.symbol,
+                task_status=arguments.task_status,
+                validity_paths=tuple(arguments.validity_path),
+                validity_head_sha=arguments.validity_head,
+                supersedes=arguments.supersedes,
+            )
+        except (ValueError, KnowledgeStoreError) as error:
+            raise SystemExit(translate(settings["language"], "knowledge_capture_error", error=error)) from None
+        except OSError:
+            raise SystemExit(translate(settings["language"], "knowledge_capture_unavailable")) from None
+        kind_label = translate(settings["language"], f"knowledge_kind_{arguments.kind}")
+        print(translate(
+            settings["language"], "knowledge_capture_recorded",
+            kind=kind_label, record_id=record.id, source=arguments.source,
+            turn=arguments.turn, event_count=len(record.source_refs),
+        ))
 
 
 if __name__ == "__main__":

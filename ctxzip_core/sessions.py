@@ -1,7 +1,9 @@
 """Archive session enumeration and display identifiers."""
 from pathlib import Path
+import re
 
 from .parsers import is_codex_file
+from .parser_chatgpt import import_conversations
 
 def short_id(session_id: str) -> str:
     """Return a distinctive short session ID (Codex rollout IDs end with a UUID)."""
@@ -15,6 +17,11 @@ def list_sessions(project_dir: Path):
             if ".onceki." in path.name:
                 continue
             yield tool_name, path.stem, path
+    chatgpt_dir = raw / "chatgpt"
+    if chatgpt_dir.exists():
+        for path in sorted(chatgpt_dir.glob("*.json")):
+            if path.is_file():
+                yield "chatgpt", path.stem, path
     artifact_dir = raw / "antigravity"
     if artifact_dir.exists():
         for row in sorted(entry for entry in artifact_dir.iterdir() if entry.is_dir()):
@@ -27,6 +34,20 @@ def list_sessions(project_dir: Path):
             elif path.suffix.lower() == ".jsonl":
                 # Infer whether a raw session downloaded from the cloud is Codex or Claude Code from its contents.
                 yield ("codex" if is_codex_file(path) else "claude-code"), path.stem, path
+
+
+def import_incoming_exports(project_dir: Path, language: str = "tr") -> tuple[int, int]:
+    """Import supported bundled exports as per-conversation derived raw records."""
+    incoming_dir = project_dir / "gelen"
+    if not incoming_dir.is_dir():
+        return 0, 0
+    created = updated = 0
+    export_pattern = re.compile(r"^conversations(?:[-_]\d+)?\.json$", re.IGNORECASE)
+    for export_path in sorted(path for path in incoming_dir.glob("*.json") if export_pattern.fullmatch(path.name)):
+        new_count, update_count = import_conversations(export_path, project_dir / "raw" / "chatgpt", language)
+        created += new_count
+        updated += update_count
+    return created, updated
 
 
 # Backward-compatible Turkish API aliases.

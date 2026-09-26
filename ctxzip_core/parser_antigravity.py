@@ -5,6 +5,8 @@ from .parser_common import Turn
 from .i18n import translate
 from .text import clean_text, format_timestamp, truncate_text
 
+PARSER_VERSION = "1"
+
 def parse_antigravity_turns(folder: Path, include_thinking: bool, language: str = "tr") -> tuple[list[Turn], dict]:
     turns: list[Turn] = []
     files = sorted(folder.rglob("*.md"), key=lambda entry: entry.stat().st_mtime)
