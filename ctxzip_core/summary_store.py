@@ -4,6 +4,7 @@ import json
 import re
 
 from .text import text_hash
+from .storage import atomic_write_json, atomic_write_text
 
 PLACEHOLDER = "<!-- BURAYA-YAPISTIR -->"
 BURAYA = PLACEHOLDER
@@ -15,7 +16,7 @@ def load_summary_state(project_dir: Path) -> dict:
     return {"bolumler": [], "ciltler": []}
 
 def save_summary_state(project_dir: Path, state: dict) -> None:
-    (project_dir / "durum.json").write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+    atomic_write_json(project_dir / "durum.json", state)
 
 def split_summary_metadata(text: str) -> tuple[dict, str]:
     match = re.match(r"^---\n(.*?)\n---\n", text, re.S)
@@ -31,7 +32,7 @@ def split_summary_metadata(text: str) -> tuple[dict, str]:
 def write_summary_file(path: Path, metadata: dict, title: str, body: str) -> None:
     metadata = dict(metadata, govde_hash=text_hash(body.strip()))
     header = "\n".join(f"{key}: {value}" for key, value in metadata.items())
-    path.write_text(f"---\n{header}\n---\n# {title}\n\n{body.strip()}\n", encoding="utf-8")
+    atomic_write_text(path, f"---\n{header}\n---\n# {title}\n\n{body.strip()}\n")
 
 def read_summary_body(path: Path) -> tuple[dict, str]:
     metadata, text = split_summary_metadata(path.read_text(encoding="utf-8"))

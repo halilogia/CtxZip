@@ -13,6 +13,7 @@ from .summary_store import (
     PLACEHOLDER, load_summary_state, read_summary_body, save_summary_state,
     split_summary_metadata, write_summary_file,
 )
+from .storage import atomic_write_text
 from .text import format_timestamp, text_hash
 
 
@@ -83,9 +84,10 @@ def fold_volume(settings: dict, project_dir: Path, state: dict, manual: bool) ->
         system_prompt = arc_prompt(language)
         if manual:
             prompt_path = volume_dir / f"C{volume_number:03d}.istem.md"
-            prompt_path.write_text(
+            atomic_write_text(
+                prompt_path,
                 f"# {translate(language, 'system_heading')}\n\n{system_prompt}\n\n"
-                f"# {translate(language, 'user_heading')}\n\n{user_prompt}\n", encoding="utf-8")
+                f"# {translate(language, 'user_heading')}\n\n{user_prompt}\n")
             paste_instruction = translate(language, "arc_manual_instruction")
             write_summary_file(summary_path, dict(metadata, model="elle"), title,
                                f"{PLACEHOLDER}\n`{prompt_path.name}` {paste_instruction}.")
@@ -156,9 +158,10 @@ def summarize_project(settings: dict, project_dir: Path, manual: bool) -> bool |
                      f"{short_id(session_id)} · T{first_turn}–T{last_turn}")
             if manual:
                 prompt_path = chapter_dir / f"B{chapter_number:04d}.istem.md"
-                prompt_path.write_text(
+                atomic_write_text(
+                    prompt_path,
                     f"# {translate(language, 'system_heading')}\n\n{system_prompt}\n\n"
-                    f"# {translate(language, 'user_heading')}\n\n{user_prompt}\n", encoding="utf-8")
+                    f"# {translate(language, 'user_heading')}\n\n{user_prompt}\n")
                 instruction = translate(language, "chapter_manual_instruction", file=prompt_path.name)
                 write_summary_file(summary_path, dict(metadata, model="elle"), title, f"{PLACEHOLDER}\n{instruction}")
             else:

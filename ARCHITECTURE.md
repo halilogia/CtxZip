@@ -30,6 +30,7 @@ bolumler/ + ciltler/ → context → BAGLAM.md
 | `ctxzip_core/text.py` | Shared text cleanup, timestamp formatting, hashing, and approximate token counting |
 | `ctxzip_core/chunking.py` | Turn budgeting and chapter chunking |
 | `ctxzip_core/summary_store.py` | `durum.json`, summary metadata, body hashes, and manual-edit detection |
+| `ctxzip_core/storage.py` | Atomic text/JSON replacement and metadata-preserving atomic file copies |
 | `ctxzip_core/prompts.py` | Chapter/volume prompts and prompt version |
 | `ctxzip_core/i18n.py` | Locale resolution, namespace catalog loading, fallback, named interpolation, and validation (`locales/<locale>/<namespace>.json`) |
 | `ctxzip_core/summarizing.py` | Fills pending summaries, creates chapters/volumes, and manages state transitions for one project |
@@ -43,6 +44,6 @@ A chapter never crosses a session boundary. The final chunk of an active session
 
 ## Known architectural debt
 
-File and state writes are not atomic, and there is no reconciliation after interruption. If a source is rewritten or shortened within the same turn range, existing summaries are not reevaluated. State dictionaries have no formal schema; source discovery/copying, transcript generation, and context selection still live in the CLI. Coverage against real source-format versions and task-relevant summary selection are incomplete. See the [task list](docs/TASKS.md).
+Critical single-file outputs and source copies use same-directory temporary files and atomic replacement. Multi-file operations still lack deterministic reconciliation after interruption. If a source is rewritten or shortened within the same turn range, existing summaries are not reevaluated. State dictionaries have no formal schema; source discovery/copying, transcript generation, and context selection still live in the CLI. Coverage against real source-format versions and task-relevant summary selection are incomplete. See the [task list](docs/TASKS.md).
 
 Before sending, `call_llm` redacts known secret patterns and previews the full prompt and destination. It makes no network request without interactive approval or the explicit `--approved-send` / `--onayli-gonder` option. For Git safety, `context --copy` / `baglam --kopyala` requires the destination file to be untracked and ignored by the target repository. `scripts/check_staged.py` scans selected index content; `scripts/install_hook.py` installs the check while preserving an existing `pre-commit` hook. These measures are not comprehensive data-loss prevention.

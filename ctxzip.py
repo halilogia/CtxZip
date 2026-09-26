@@ -13,7 +13,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import sys
 import time
 from datetime import datetime
@@ -44,6 +43,7 @@ from ctxzip_core.git_safety import ensure_git_safe_copy
 from ctxzip_core.llm import call_llm
 from ctxzip_core.privacy import redact_secrets
 from ctxzip_core.i18n import LocalizationError, preferred_language, translate, validate_catalogs
+from ctxzip_core.storage import atomic_copy2, atomic_write_text
 
 VERSION = "0.1.0"
 
@@ -170,10 +170,10 @@ def collect(settings: dict, archive_root: Path) -> None:
                 copied_path = target / markdown_file.relative_to(source_path)
                 if not copied_path.exists() or copied_path.read_bytes() != markdown_file.read_bytes():
                     copied_path.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(markdown_file, copied_path)
+                    atomic_copy2(markdown_file, copied_path)
                     changed = True
             is_new = not (target_dir / (session_id + ".kaynak")).exists()
-            (target_dir / (session_id + ".kaynak")).write_text(str(source_path), encoding="utf-8")
+            atomic_write_text(target_dir / (session_id + ".kaynak"), str(source_path))
         else:
             target = target_dir / (session_id + ".jsonl")
             is_new = not target.exists()
@@ -181,8 +181,8 @@ def collect(settings: dict, archive_root: Path) -> None:
             if changed:
                 if not is_new and target.stat().st_size > source_path.stat().st_size:
                     # If the source shrank because the tool rewrote it, preserve the previous copy before replacement.
-                    shutil.copy2(target, target.with_suffix(f".{int(time.time())}.onceki.jsonl"))
-                shutil.copy2(source_path, target)
+                    atomic_copy2(target, target.with_suffix(f".{int(time.time())}.onceki.jsonl"))
+                atomic_copy2(source_path, target)
         if is_new:
             new_count += 1
         elif changed:
@@ -218,7 +218,10 @@ def write_transcripts(settings: dict, archive_root: Path, project: str | None) -
                      f"{raw_label}: `{path.relative_to(project_dir)}`", ""]
             for turn in turns:
                 transcript_lines.append(f"## [T{turn.number}] {turn.timestamp}\n\n{turn.text()}\n")
-            (target / name).write_text(redact_secrets("\n".join(transcript_lines), settings.get("language", "tr")), encoding="utf-8")
+            atomic_write_text(
+                target / name,
+                redact_secrets("\n".join(transcript_lines), settings.get("language", "tr")),
+            )
             transcript_count += 1
         print(translate(settings.get("language"), "transcript_result", project=project_dir.name, count=transcript_count, path=target))
 
@@ -272,13 +275,13 @@ def build_context(settings: dict, archive_root: Path, project: str, budget: int,
     for title, body in selected_summaries:
         output_lines.append(f"---\n\n# {title}\n\n{body}\n")
     target = project_dir / "BAGLAM.md"
-    target.write_text("\n".join(output_lines), encoding="utf-8")
+    atomic_write_text(target, "\n".join(output_lines))
     print(translate(language, "context_result", path=target, count=len(selected_summaries), tokens=budget - remaining_tokens))
     if copy_target:
         source_root = Path(os.path.expanduser(copy_target))
         source_root = source_root / "BAGLAM.md" if source_root.is_dir() else source_root
         ensure_git_safe_copy(source_root, language)
-        shutil.copy2(target, source_root)
+        atomic_copy2(target, source_root)
         print(f"[{translate(language, 'copied')}] -> {source_root}")
 
 # ---------------------------------------------------------------- status

@@ -9,9 +9,10 @@
 - The final LLM submission boundary redacts known patterns again and displays the full prompt and destination. No request is sent without interactive approval; `--onayli-gonder` deliberately bypasses this approval.
 - Git index checks run automatically only in clones where the hook is installed. Git hooks are not transferred with the repository and can be bypassed with `--no-verify`.
 - Parser code is split into `parser_common.py` and provider modules for Claude, Codex, Antigravity, and manual input; `parsers.py` remains a facade for legacy import paths.
-- The current test suite has 26 passing tests. Import/compile checks, CLI help in both languages, settings JSON validation, and diff whitespace validation also pass. These checks use synthetic data; no real LLM provider request was made.
+- The current test suite has 30 passing tests. Import/compile checks, CLI help in both languages, settings JSON validation, staged privacy checks, and diff whitespace validation also pass. These checks use synthetic data; no real LLM provider request was made.
 - Python identifiers, source module filenames, comments, and docstrings are English. Remaining Turkish API names are explicit compatibility aliases; Turkish persisted keys and paths are part of the archive schema. The checked-in config example is `ctxzip.settings.example.json`; `ctxzip.settings.json` is preferred for private settings, and an existing `ctxzip_ayar.json` is selected automatically as a fallback.
 - Localization catalogs are namespace-based JSON files under `locales/<locale>/<namespace>.json`, with Turkish and English catalogs, fallback, named interpolation, plural forms, and consistency validation.
+- Critical derived files and source copies are written through same-directory temporary files and atomic replacement. Tests cover replacement/copy failures preserving the old target and cleaning partial files; multi-file crash reconciliation remains incomplete.
 
 ## Unknowns
 

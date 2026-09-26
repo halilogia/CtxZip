@@ -6,7 +6,7 @@
 
 - [ ] Parser tests using real Claude Code and Codex JSONL samples sanitized of personal data.
 - [x] Verify with synthetic records that rerunning `collect → transcript → summarize`, source growth/shrinkage, and continuation after an LLM error do not create duplicate chapters.
-- [ ] Make transcript, summary, and `durum.json` writes atomic.
+- [x] Use atomic replacement for source copies, transcripts, summary prompts/files, `durum.json`, and context packs; cover failed replacement/copy behavior.
 - [x] Add personal-path and common-secret scanning for the Git index, plus LLM preview and approval before network calls.
 - [x] Show a clear error and `--manual` guidance when the model name is empty or still set to the sample value.
 - [ ] Measure coverage for detecting unknown secrets and personal information against real sanitized examples.
@@ -41,7 +41,7 @@
 - [x] Add namespace-based Turkish/English catalogs with placeholder/plural validation and locale fallback.
 - [x] Use English names for Python source files, application symbols, comments, and docstrings; use an English filename for the sample settings file.
 - [x] Split source-format parsers into small provider modules with English names and retain the `parsers.py` compatibility facade.
-- [ ] Reconcile file/state interruptions with atomic writes; evaluate a schema-backed state model.
+- [ ] Reconcile multi-file processing after interruption; evaluate a schema-backed state model.
 - [ ] Handle stale summaries for sources that change or shrink within the same turn range, while preserving user edits.
 - [ ] Move source discovery/copying, transcript generation, and context flows out of the CLI as needed.
 - [ ] Design an MCP interface.

@@ -17,6 +17,7 @@
 ### Changed
 
 - Source parsers, session listing, turn budgeting, summary files/state management, and chapter/volume orchestration were moved into core modules while preserving commands and archive formats.
+- Raw source copies, transcripts, manual prompts, summaries, processing state, and context packs now use atomic file replacement to avoid exposing partial files.
 - Privacy cleanup, LLM submission, and Git copy checks were separated into `ctxzip_core/` modules while preserving CLI and output behavior.
 - Automatic summarization stops early with a clear error when `llm.model` contains the sample value.
 - Known secret patterns are also redacted from the final prompt sent to the LLM.
